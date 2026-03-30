@@ -15,6 +15,7 @@ struct TripDetailView: View {
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var showingMapView = false
+    @State private var showingSharingSheet = false
     @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
     
@@ -51,6 +52,14 @@ struct TripDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
+                    showingSharingSheet = true
+                } label: {
+                    Label("Share Trip", systemImage: "square.and.arrow.up")
+                }
+                .disabled(trip.isClosed)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
                     trip.isClosed.toggle()
                 } label: {
                     Label(
@@ -62,6 +71,9 @@ struct TripDetailView: View {
         }
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightings)
+        }
+        .sheet(isPresented: $showingSharingSheet) {
+            CloudSharingView(trip: trip, modelContainer: modelContext.container)
         }
     }
 }
