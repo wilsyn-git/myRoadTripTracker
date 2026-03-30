@@ -31,6 +31,7 @@ struct PlateSightingsSection: View {
                     onTap: { markAsSeen(location) },
                     onRemove: { unmarkAsSeen(location) }
                 )
+                .disabled(trip.isClosed)
             }
         } header: {
             HStack {
@@ -48,19 +49,22 @@ struct PlateSightingsSection: View {
     
     private func markAsSeen(_ location: Location) {
         guard !isSeen(location) else { return }
-        
-        let latitude = locationManager.currentLocation?.coordinate.latitude ?? 0.0
-        let longitude = locationManager.currentLocation?.coordinate.longitude ?? 0.0
-        
-        let sighting = PlateSighting(
-            locationCode: location.code,
-            locationName: location.name,
-            latitude: latitude,
-            longitude: longitude
-        )
-        sighting.trip = trip
-        trip.plateSightings.append(sighting)
-        modelContext.insert(sighting)
+
+        Task {
+            let loc = await locationManager.requestCurrentLocation()
+            let latitude = loc?.coordinate.latitude ?? 0.0
+            let longitude = loc?.coordinate.longitude ?? 0.0
+
+            let sighting = PlateSighting(
+                locationCode: location.code,
+                locationName: location.name,
+                latitude: latitude,
+                longitude: longitude
+            )
+            sighting.trip = trip
+            trip.plateSightings.append(sighting)
+            modelContext.insert(sighting)
+        }
     }
     
     private func unmarkAsSeen(_ location: Location) {

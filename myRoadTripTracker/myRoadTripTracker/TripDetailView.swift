@@ -15,7 +15,13 @@ struct TripDetailView: View {
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var showingMapView = false
+    @State private var showingSharingSheet = false
+    @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
+    @State private var showingNamePrompt = false
+    @State private var resolvedDisplayName: String?
+    @State private var cloudKitUserID: String = ""
+    @State private var showingParticipants = false
     
     var body: some View {
         List {
@@ -25,6 +31,7 @@ struct TripDetailView: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .focused($isNameFieldFocused)
+                    .disabled(trip.isClosed)
                     .task {
                         if isNewTrip {
                             try? await Task.sleep(for: .milliseconds(100))
@@ -35,7 +42,7 @@ struct TripDetailView: View {
             
             PlateSightingsSection(trip: trip, locationManager: locationManager)
             
-            ObservationsSection(trip: trip)
+            ObservationsSection(trip: trip, currentUserName: resolvedDisplayName ?? currentUserName)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -47,12 +54,77 @@ struct TripDetailView: View {
                 }
                 .disabled(trip.plateSightings.isEmpty)
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    showingSharingSheet = true
+                } label: {
+                    Label("Share Trip", systemImage: "square.and.arrow.up")
+                }
+                .disabled(trip.isClosed)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    showingParticipants = true
+                } label: {
+                    Label("Participants", systemImage: "person.2")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    trip.isClosed.toggle()
+                } label: {
+                    Label(
+                        trip.isClosed ? "Reopen Trip" : "Close Trip",
+                        systemImage: trip.isClosed ? "lock.open" : "lock"
+                    )
+                }
+            }
+        }
+        .task {
+            cloudKitUserID = await CloudKitUserHelper.currentUserID()
+            // For local/new trips, auto-create a participant record silently
+            if trip.participants.isEmpty {
+                let participant = TripParticipant(
+                    displayName: currentUserName,
+                    cloudKitUserID: cloudKitUserID
+                )
+                participant.trip = trip
+                trip.participants.append(participant)
+                modelContext.insert(participant)
+                resolvedDisplayName = currentUserName
+            } else if trip.participants.contains(where: { $0.cloudKitUserID == cloudKitUserID }) {
+                // User already has a participant record
+                resolvedDisplayName = trip.participants.first { $0.cloudKitUserID == cloudKitUserID }?.displayName ?? currentUserName
+            } else {
+                // This is a shared trip and user doesn't have a record - prompt
+                showingNamePrompt = true
+            }
         }
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightings)
         }
-        .onAppear {
-            locationManager.requestPermission()
+        .sheet(isPresented: $showingSharingSheet) {
+            CloudSharingView(trip: trip, modelContainer: modelContext.container)
+        }
+        .sheet(isPresented: $showingParticipants) {
+            ParticipantsView(
+                trip: trip,
+                isOwner: true,  // For now, assume owner. Real ownership check needs CloudKit share inspection.
+                currentUserID: cloudKitUserID
+            )
+        }
+        .sheet(isPresented: $showingNamePrompt) {
+            JoinTripNameView(trip: trip) { name in
+                let participant = TripParticipant(
+                    displayName: name,
+                    cloudKitUserID: cloudKitUserID
+                )
+                participant.trip = trip
+                trip.participants.append(participant)
+                modelContext.insert(participant)
+                resolvedDisplayName = name
+                showingNamePrompt = false
+            }
         }
     }
 }
