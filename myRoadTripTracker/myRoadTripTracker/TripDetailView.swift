@@ -21,6 +21,7 @@ struct TripDetailView: View {
     @State private var showingNamePrompt = false
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
+    @State private var showingParticipants = false
     
     var body: some View {
         List {
@@ -63,6 +64,13 @@ struct TripDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
+                    showingParticipants = true
+                } label: {
+                    Label("Participants", systemImage: "person.2")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
                     trip.isClosed.toggle()
                 } label: {
                     Label(
@@ -97,6 +105,13 @@ struct TripDetailView: View {
         }
         .sheet(isPresented: $showingSharingSheet) {
             CloudSharingView(trip: trip, modelContainer: modelContext.container)
+        }
+        .sheet(isPresented: $showingParticipants) {
+            ParticipantsView(
+                trip: trip,
+                isOwner: true,  // For now, assume owner. Real ownership check needs CloudKit share inspection.
+                currentUserID: cloudKitUserID
+            )
         }
         .sheet(isPresented: $showingNamePrompt) {
             JoinTripNameView(trip: trip) { name in
