@@ -20,6 +20,7 @@ struct TripDetailView: View {
     let isNewTrip: Bool
     @State private var showingNamePrompt = false
     @State private var resolvedDisplayName: String?
+    @State private var cloudKitUserID: String = ""
     
     var body: some View {
         List {
@@ -72,19 +73,20 @@ struct TripDetailView: View {
             }
         }
         .task {
+            cloudKitUserID = await CloudKitUserHelper.currentUserID()
             // For local/new trips, auto-create a participant record silently
             if trip.participants.isEmpty {
                 let participant = TripParticipant(
                     displayName: currentUserName,
-                    cloudKitUserID: "local"  // Will be replaced with real CloudKit ID in Task 11
+                    cloudKitUserID: cloudKitUserID
                 )
                 participant.trip = trip
                 trip.participants.append(participant)
                 modelContext.insert(participant)
                 resolvedDisplayName = currentUserName
-            } else if trip.participants.contains(where: { $0.displayName == currentUserName || $0.cloudKitUserID == "local" }) {
+            } else if trip.participants.contains(where: { $0.cloudKitUserID == cloudKitUserID }) {
                 // User already has a participant record
-                resolvedDisplayName = trip.participants.first { $0.cloudKitUserID == "local" }?.displayName ?? currentUserName
+                resolvedDisplayName = trip.participants.first { $0.cloudKitUserID == cloudKitUserID }?.displayName ?? currentUserName
             } else {
                 // This is a shared trip and user doesn't have a record - prompt
                 showingNamePrompt = true
@@ -100,7 +102,7 @@ struct TripDetailView: View {
             JoinTripNameView(trip: trip) { name in
                 let participant = TripParticipant(
                     displayName: name,
-                    cloudKitUserID: "local"
+                    cloudKitUserID: cloudKitUserID
                 )
                 participant.trip = trip
                 trip.participants.append(participant)
