@@ -10,10 +10,10 @@ import SwiftData
 
 @Model
 final class ObservationEntry {
-    var category: String
-    var authorName: String
-    var text: String
-    var createdDate: Date
+    var category: String = ""
+    var authorName: String = ""
+    var text: String = ""
+    var createdDate: Date = Date.now
     var trip: Trip?
 
     init(category: String, authorName: String, text: String, createdDate: Date = .now) {

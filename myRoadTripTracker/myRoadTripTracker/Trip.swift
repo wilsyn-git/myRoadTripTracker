@@ -10,19 +10,33 @@ import SwiftData
 
 @Model
 final class Trip {
-    var name: String
-    var createdDate: Date
-    
+    var name: String = "New Trip"
+    var createdDate: Date = Date.now
+    var isClosed: Bool = false
+
     @Relationship(deleteRule: .cascade, inverse: \PlateSighting.trip)
-    var plateSightings: [PlateSighting] = []
-    
+    var _plateSightings: [PlateSighting]? = []
+
     @Relationship(deleteRule: .cascade, inverse: \ObservationEntry.trip)
-    var observationEntries: [ObservationEntry] = []
+    var _observationEntries: [ObservationEntry]? = []
 
     @Relationship(deleteRule: .cascade, inverse: \TripParticipant.trip)
-    var participants: [TripParticipant] = []
+    var _participants: [TripParticipant]? = []
 
-    var isClosed: Bool
+    var plateSightings: [PlateSighting] {
+        get { _plateSightings ?? [] }
+        set { _plateSightings = newValue }
+    }
+
+    var observationEntries: [ObservationEntry] {
+        get { _observationEntries ?? [] }
+        set { _observationEntries = newValue }
+    }
+
+    var participants: [TripParticipant] {
+        get { _participants ?? [] }
+        set { _participants = newValue }
+    }
 
     init(name: String = "New Trip", createdDate: Date = .now) {
         self.name = name
