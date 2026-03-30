@@ -101,7 +101,7 @@ struct PlateRow: View {
                 }
             }
             .padding(.vertical, 4)
-            .contentShape(Rectangle())
+            .contentShape(.rect)
             .background(isSeen ? Color.green.opacity(0.1) : Color.clear)
             .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
         }

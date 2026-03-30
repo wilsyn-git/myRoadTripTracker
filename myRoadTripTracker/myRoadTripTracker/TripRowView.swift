@@ -26,15 +26,18 @@ struct TripRowView: View {
                     Image(systemName: "lock.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                 }
                 if isShared {
                     HStack(spacing: 2) {
                         Image(systemName: "person.2.fill")
                             .font(.caption2)
+                            .accessibilityHidden(true)
                         Text("\(trip.participants.count)")
                             .font(.caption2)
                     }
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("^[\(trip.participants.count) participant](inflect: true)")
                 }
             }
             HStack(spacing: 0) {

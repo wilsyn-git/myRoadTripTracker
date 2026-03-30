@@ -47,7 +47,7 @@ struct OnboardingView: View {
                     .padding()
                     .background(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.accentColor)
                     .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(.rect(cornerRadius: 14))
             }
             .disabled(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .padding(.horizontal, 32)

@@ -104,12 +104,11 @@ struct ComposeEntryRow: View {
                 .onSubmit {
                     submitEntry()
                 }
-            Button {
+            Button("Submit", systemImage: "arrow.up.circle.fill") {
                 submitEntry()
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title3)
             }
+            .labelStyle(.iconOnly)
+            .font(.title3)
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }

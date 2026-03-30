@@ -50,6 +50,7 @@ struct CloudSharingAttemptView: UIViewControllerRepresentable {
         Coordinator(onError: onError, onDismiss: onDismiss)
     }
 
+    @available(iOS, deprecated: 17.0, message: "No SwiftUI-native CloudKit sharing replacement exists yet")
     func makeUIViewController(context: Context) -> UIViewController {
         let container = CKContainer(identifier: "iCloud.com.tentenbits.myRoadTripTracker")
 
