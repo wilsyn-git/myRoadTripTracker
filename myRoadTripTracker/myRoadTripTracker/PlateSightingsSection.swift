@@ -85,11 +85,18 @@ struct PlateRow: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack {
+            HStack(spacing: 12) {
+                Image(location.flagImageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 20)
+                    .clipShape(.rect(cornerRadius: 2))
+                    .accessibilityHidden(true)
+
                 Text(location.code)
                     .font(.system(.body, design: .monospaced))
                     .bold()
-                    .frame(width: 50, alignment: .leading)
+                    .frame(width: 36, alignment: .leading)
 
                 Text(location.name)
 

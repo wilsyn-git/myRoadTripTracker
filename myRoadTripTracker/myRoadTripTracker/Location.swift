@@ -13,6 +13,10 @@ struct Location: Identifiable, Hashable {
     let name: String
     let type: LocationType
     
+    var flagImageName: String {
+        name.lowercased().replacing(" ", with: "_")
+    }
+
     enum LocationType {
         case usState
         case canadianProvince
