@@ -16,3 +16,6 @@ Packages/
 
 # Claude
 .claude/
+
+# Worktrees
+.worktrees/
