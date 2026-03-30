@@ -15,6 +15,7 @@ struct TripRowView: View {
     private var percentage: Int {
         totalCount > 0 ? (seenCount * 100) / totalCount : 0
     }
+    private var isShared: Bool { trip.participants.count > 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -25,6 +26,15 @@ struct TripRowView: View {
                     Image(systemName: "lock.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if isShared {
+                    HStack(spacing: 2) {
+                        Image(systemName: "person.2.fill")
+                            .font(.caption2)
+                        Text("\(trip.participants.count)")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.secondary)
                 }
             }
             HStack(spacing: 0) {
