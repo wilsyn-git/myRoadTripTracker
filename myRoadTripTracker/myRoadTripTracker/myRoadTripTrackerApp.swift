@@ -14,6 +14,6 @@ struct myRoadTripTrackerApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [Trip.self, PlateSighting.self, TripObservation.self])
+        .modelContainer(for: [Trip.self, PlateSighting.self, ObservationEntry.self])
     }
 }
