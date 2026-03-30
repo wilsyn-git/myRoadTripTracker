@@ -18,8 +18,15 @@ struct TripRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(trip.name)
-                .font(.headline)
+            HStack {
+                Text(trip.name)
+                    .font(.headline)
+                if trip.isClosed {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             HStack(spacing: 0) {
                 Text(trip.createdDate, style: .date)
                 Text("  —  \(seenCount)/\(totalCount): \(percentage)%")

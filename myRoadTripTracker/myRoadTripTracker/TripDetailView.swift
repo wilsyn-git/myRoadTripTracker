@@ -26,6 +26,7 @@ struct TripDetailView: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .focused($isNameFieldFocused)
+                    .disabled(trip.isClosed)
                     .task {
                         if isNewTrip {
                             try? await Task.sleep(for: .milliseconds(100))
@@ -47,6 +48,16 @@ struct TripDetailView: View {
                     Label("View Map", systemImage: "map")
                 }
                 .disabled(trip.plateSightings.isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    trip.isClosed.toggle()
+                } label: {
+                    Label(
+                        trip.isClosed ? "Reopen Trip" : "Close Trip",
+                        systemImage: trip.isClosed ? "lock.open" : "lock"
+                    )
+                }
             }
         }
         .sheet(isPresented: $showingMapView) {

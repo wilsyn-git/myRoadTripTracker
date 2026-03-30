@@ -31,6 +31,7 @@ struct PlateSightingsSection: View {
                     onTap: { markAsSeen(location) },
                     onRemove: { unmarkAsSeen(location) }
                 )
+                .disabled(trip.isClosed)
             }
         } header: {
             HStack {
