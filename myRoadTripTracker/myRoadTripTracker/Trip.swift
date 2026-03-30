@@ -19,6 +19,9 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \ObservationEntry.trip)
     var observationEntries: [ObservationEntry] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \TripParticipant.trip)
+    var participants: [TripParticipant] = []
+
     var isClosed: Bool
 
     init(name: String = "New Trip", createdDate: Date = .now) {
