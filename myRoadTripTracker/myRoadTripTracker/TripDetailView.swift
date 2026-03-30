@@ -18,6 +18,8 @@ struct TripDetailView: View {
     @State private var showingSharingSheet = false
     @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
+    @State private var showingNamePrompt = false
+    @State private var resolvedDisplayName: String?
     
     var body: some View {
         List {
@@ -38,7 +40,7 @@ struct TripDetailView: View {
             
             PlateSightingsSection(trip: trip, locationManager: locationManager)
             
-            ObservationsSection(trip: trip, currentUserName: currentUserName)
+            ObservationsSection(trip: trip, currentUserName: resolvedDisplayName ?? currentUserName)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -69,11 +71,43 @@ struct TripDetailView: View {
                 }
             }
         }
+        .task {
+            // For local/new trips, auto-create a participant record silently
+            if trip.participants.isEmpty {
+                let participant = TripParticipant(
+                    displayName: currentUserName,
+                    cloudKitUserID: "local"  // Will be replaced with real CloudKit ID in Task 11
+                )
+                participant.trip = trip
+                trip.participants.append(participant)
+                modelContext.insert(participant)
+                resolvedDisplayName = currentUserName
+            } else if trip.participants.contains(where: { $0.displayName == currentUserName || $0.cloudKitUserID == "local" }) {
+                // User already has a participant record
+                resolvedDisplayName = trip.participants.first { $0.cloudKitUserID == "local" }?.displayName ?? currentUserName
+            } else {
+                // This is a shared trip and user doesn't have a record - prompt
+                showingNamePrompt = true
+            }
+        }
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightings)
         }
         .sheet(isPresented: $showingSharingSheet) {
             CloudSharingView(trip: trip, modelContainer: modelContext.container)
+        }
+        .sheet(isPresented: $showingNamePrompt) {
+            JoinTripNameView(trip: trip) { name in
+                let participant = TripParticipant(
+                    displayName: name,
+                    cloudKitUserID: "local"
+                )
+                participant.trip = trip
+                trip.participants.append(participant)
+                modelContext.insert(participant)
+                resolvedDisplayName = name
+                showingNamePrompt = false
+            }
         }
     }
 }
