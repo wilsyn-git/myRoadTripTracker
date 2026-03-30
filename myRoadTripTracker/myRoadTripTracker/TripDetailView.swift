@@ -15,6 +15,7 @@ struct TripDetailView: View {
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var showingMapView = false
+    @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
     
     var body: some View {
@@ -35,7 +36,7 @@ struct TripDetailView: View {
             
             PlateSightingsSection(trip: trip, locationManager: locationManager)
             
-            ObservationsSection(trip: trip)
+            ObservationsSection(trip: trip, currentUserName: currentUserName)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

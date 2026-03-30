@@ -30,7 +30,7 @@ class LocationManager: NSObject {
 
     /// Request a single location fix. Returns nil if permission denied or location unavailable.
     func requestCurrentLocation() async -> CLLocation? {
-        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+        if authorizationStatus != .authorizedWhenInUse && authorizationStatus != .authorizedAlways {
             requestPermission()
             // Wait briefly for authorization
             try? await Task.sleep(for: .milliseconds(500))
