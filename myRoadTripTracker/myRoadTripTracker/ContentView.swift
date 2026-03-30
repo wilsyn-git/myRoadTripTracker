@@ -13,6 +13,7 @@ struct ContentView: View {
     @Query(sort: \Trip.createdDate, order: .reverse) private var trips: [Trip]
     @State private var navigationPath = NavigationPath()
     @State private var newlyCreatedTrip: Trip?
+    @State private var isPulsing = false
     
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -33,6 +34,7 @@ struct ContentView: View {
                     Button(action: addTrip) {
                         Label("Add Trip", systemImage: "plus")
                     }
+                    .symbolEffect(.pulse, isActive: isPulsing)
                 }
             }
             .overlay {
@@ -45,6 +47,12 @@ struct ContentView: View {
                         Button("Create Trip", action: addTrip)
                     }
                 }
+            }
+            .onAppear {
+                isPulsing = trips.isEmpty
+            }
+            .onChange(of: trips.count) { _, newCount in
+                isPulsing = newCount == 0
             }
         }
     }
