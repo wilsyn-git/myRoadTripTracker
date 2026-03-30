@@ -10,9 +10,15 @@ import SwiftData
 
 @main
 struct myRoadTripTrackerApp: App {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if hasCompletedOnboarding {
+                ContentView()
+            } else {
+                OnboardingView()
+            }
         }
         .modelContainer(for: [Trip.self, PlateSighting.self, ObservationEntry.self, TripParticipant.self])
     }
