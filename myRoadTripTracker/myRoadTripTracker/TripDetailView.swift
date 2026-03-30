@@ -103,9 +103,7 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightings)
         }
-        .sheet(isPresented: $showingSharingSheet) {
-            CloudSharingView(trip: trip, modelContainer: modelContext.container)
-        }
+        .cloudSharingSheet(for: trip, isPresented: $showingSharingSheet)
         .sheet(isPresented: $showingParticipants) {
             ParticipantsView(
                 trip: trip,

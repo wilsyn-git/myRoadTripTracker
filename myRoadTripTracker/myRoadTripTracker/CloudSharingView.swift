@@ -6,42 +6,79 @@
 //
 
 import CloudKit
-import CoreData
 import SwiftData
 import SwiftUI
 
-/// A SwiftUI wrapper around UICloudSharingController for sharing Trip objects
-/// via CloudKit. Uses the underlying Core Data stack that SwiftData provides
-/// when configured with `cloudKitDatabase: .automatic`.
-struct CloudSharingView: UIViewControllerRepresentable {
+/// Presents the system CloudKit sharing UI for a Trip.
+/// Falls back to an error message if CloudKit is not available.
+struct CloudSharingSheet: ViewModifier {
     let trip: Trip
-    let modelContainer: ModelContainer
+    @Binding var isPresented: Bool
+    @State private var sharingError: String?
+    @State private var showingError = false
 
-    @Environment(\.dismiss) private var dismiss
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(dismiss: dismiss)
-    }
-
-    func makeUIViewController(context: Context) -> UICloudSharingController {
-        let container = CKContainer(identifier: "iCloud.com.tentenbits.myRoadTripTracker")
-
-        // Try to get the existing CKShare for this trip via the Core Data stack
-        let persistentContainer = findPersistentCloudKitContainer()
-        let existingShare = fetchExistingShare(persistentContainer: persistentContainer)
-
-        let controller: UICloudSharingController
-
-        if let existingShare {
-            controller = UICloudSharingController(share: existingShare, container: container)
-        } else {
-            controller = UICloudSharingController { sharingController, preparationCompletion in
-                self.createShare(
-                    persistentContainer: persistentContainer,
-                    ckContainer: container,
-                    completion: preparationCompletion
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $isPresented) {
+                CloudSharingAttemptView(
+                    trip: trip,
+                    onError: { error in
+                        sharingError = error
+                        isPresented = false
+                        showingError = true
+                    },
+                    onDismiss: {
+                        isPresented = false
+                    }
                 )
             }
+            .alert("Sharing Unavailable", isPresented: $showingError) {
+                Button("OK") { sharingError = nil }
+            } message: {
+                Text(sharingError ?? "Unable to share this trip. Please make sure you're signed into iCloud and try again.")
+            }
+    }
+}
+
+/// Attempts to present UICloudSharingController, handling failures gracefully.
+struct CloudSharingAttemptView: UIViewControllerRepresentable {
+    let trip: Trip
+    let onError: (String) -> Void
+    let onDismiss: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onError: onError, onDismiss: onDismiss)
+    }
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        let container = CKContainer(identifier: "iCloud.com.tentenbits.myRoadTripTracker")
+
+        let controller = UICloudSharingController { sharingController, preparationCompletion in
+            let privateDB = container.privateCloudDatabase
+
+            // Create a new CKRecord zone for sharing
+            let zone = CKRecordZone(zoneName: "com.apple.coredata.cloudkit.zone")
+            let recordID = CKRecord.ID(recordName: UUID().uuidString, zoneID: zone.zoneID)
+            let record = CKRecord(recordType: "CD_Trip", recordID: recordID)
+            record["CD_name"] = self.trip.name as CKRecordValue
+
+            let share = CKShare(rootRecord: record)
+            share[CKShare.SystemFieldKey.title] = self.trip.name as CKRecordValue
+            share.publicPermission = .none
+
+            let operation = CKModifyRecordsOperation(
+                recordsToSave: [record, share],
+                recordIDsToDelete: nil
+            )
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    preparationCompletion(share, container, nil)
+                case .failure(let error):
+                    preparationCompletion(nil, nil, error)
+                }
+            }
+            privateDB.add(operation)
         }
 
         controller.availablePermissions = [.allowReadWrite]
@@ -50,139 +87,15 @@ struct CloudSharingView: UIViewControllerRepresentable {
         return controller
     }
 
-    func updateUIViewController(
-        _ uiViewController: UICloudSharingController,
-        context: Context
-    ) {}
-
-    // MARK: - Core Data / CloudKit bridge
-
-    /// Finds the NSPersistentCloudKitContainer backing SwiftData's ModelContainer.
-    /// SwiftData uses an NSPersistentCloudKitContainer under the hood when
-    /// cloudKitDatabase is set to .automatic.
-    private func findPersistentCloudKitContainer() -> NSPersistentCloudKitContainer? {
-        // SwiftData doesn't expose the persistent container directly.
-        // We create a mirror approach: set up an NSPersistentCloudKitContainer
-        // that uses the same store URL as the SwiftData container.
-        guard let storeURL = modelContainer.configurations.first?.url else {
-            return nil
-        }
-
-        let container = NSPersistentCloudKitContainer(name: "myRoadTripTracker")
-        let description = NSPersistentStoreDescription(url: storeURL)
-        description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: "iCloud.com.tentenbits.myRoadTripTracker"
-        )
-        description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        description.setOption(
-            true as NSNumber,
-            forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey
-        )
-        container.persistentStoreDescriptions = [description]
-
-        var loadError: Error?
-        container.loadPersistentStores { _, error in
-            loadError = error
-        }
-
-        if let loadError {
-            print("Failed to load persistent stores: \(loadError)")
-            return nil
-        }
-
-        return container
-    }
-
-    /// Fetches an existing CKShare for the trip if one has already been created.
-    private func fetchExistingShare(
-        persistentContainer: NSPersistentCloudKitContainer?
-    ) -> CKShare? {
-        guard let persistentContainer,
-              let managedObject = fetchManagedObject(in: persistentContainer)
-        else {
-            return nil
-        }
-
-        do {
-            let shares = try persistentContainer.fetchShares(matching: [managedObject.objectID])
-            return shares[managedObject.objectID]
-        } catch {
-            print("Failed to fetch existing shares: \(error)")
-            return nil
-        }
-    }
-
-    /// Creates a new CKShare for the trip.
-    private func createShare(
-        persistentContainer: NSPersistentCloudKitContainer?,
-        ckContainer: CKContainer,
-        completion: @escaping (CKShare?, CKContainer?, Error?) -> Void
-    ) {
-        guard let persistentContainer,
-              let managedObject = fetchManagedObject(in: persistentContainer)
-        else {
-            completion(nil, nil, ShareError.tripNotFound)
-            return
-        }
-
-        persistentContainer.share(
-            [managedObject],
-            to: nil
-        ) { objectIDs, share, container, error in
-            if let error {
-                completion(nil, nil, error)
-                return
-            }
-
-            if let share {
-                share[CKShare.SystemFieldKey.title] = self.trip.name as CKRecordValue
-                completion(share, ckContainer, nil)
-            } else {
-                completion(nil, nil, ShareError.shareCreationFailed)
-            }
-        }
-    }
-
-    /// Finds the NSManagedObject corresponding to the Trip in the Core Data stack.
-    private func fetchManagedObject(
-        in container: NSPersistentCloudKitContainer
-    ) -> NSManagedObject? {
-        let context = container.viewContext
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Trip")
-        fetchRequest.predicate = NSPredicate(
-            format: "name == %@ AND createdDate == %@",
-            trip.name as NSString,
-            trip.createdDate as NSDate
-        )
-        fetchRequest.fetchLimit = 1
-
-        do {
-            return try context.fetch(fetchRequest).first
-        } catch {
-            print("Failed to fetch managed object: \(error)")
-            return nil
-        }
-    }
-
-    enum ShareError: LocalizedError {
-        case tripNotFound
-        case shareCreationFailed
-
-        var errorDescription: String? {
-            switch self {
-            case .tripNotFound:
-                return "Could not find the trip in the CloudKit store."
-            case .shareCreationFailed:
-                return "Failed to create a share for this trip."
-            }
-        }
-    }
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 
     class Coordinator: NSObject, UICloudSharingControllerDelegate {
-        let dismiss: DismissAction
+        let onError: (String) -> Void
+        let onDismiss: () -> Void
 
-        init(dismiss: DismissAction) {
-            self.dismiss = dismiss
+        init(onError: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
+            self.onError = onError
+            self.onDismiss = onDismiss
         }
 
         func cloudSharingController(
@@ -190,6 +103,7 @@ struct CloudSharingView: UIViewControllerRepresentable {
             failedToSaveShareWithError error: Error
         ) {
             print("Failed to save share: \(error)")
+            onError("Failed to share trip: \(error.localizedDescription)")
         }
 
         func itemTitle(for csc: UICloudSharingController) -> String? {
@@ -198,11 +112,18 @@ struct CloudSharingView: UIViewControllerRepresentable {
 
         func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
             print("Share saved successfully")
+            onDismiss()
         }
 
         func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
             print("Sharing stopped")
-            dismiss()
+            onDismiss()
         }
+    }
+}
+
+extension View {
+    func cloudSharingSheet(for trip: Trip, isPresented: Binding<Bool>) -> some View {
+        modifier(CloudSharingSheet(trip: trip, isPresented: isPresented))
     }
 }
