@@ -51,8 +51,5 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightings)
         }
-        .onAppear {
-            locationManager.requestPermission()
-        }
     }
 }
