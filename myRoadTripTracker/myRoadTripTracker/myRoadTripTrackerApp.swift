@@ -1,29 +1,12 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 
 @main
 struct myRoadTripTrackerApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
-    let modelContainer: ModelContainer
-
-    init() {
-        let schema = Schema([
-            Trip.self,
-            PlateSighting.self,
-            ObservationEntry.self,
-            TripParticipant.self,
-        ])
-        let configuration = ModelConfiguration(
-            schema: schema,
-            cloudKitDatabase: .automatic
-        )
-        do {
-            modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
-    }
+    @StateObject private var persistenceController = PersistenceController()
 
     var body: some Scene {
         WindowGroup {
@@ -33,6 +16,11 @@ struct myRoadTripTrackerApp: App {
                 OnboardingView()
             }
         }
-        .modelContainer(modelContainer)
+        .modelContainer(persistenceController.modelContainer)
+        .environmentObject(persistenceController)
+        .onOpenURL { url in
+            // Handle incoming CloudKit share URLs
+            // The system will deliver CKShare.Metadata via userDidAcceptCloudKitShareWith
+        }
     }
 }
