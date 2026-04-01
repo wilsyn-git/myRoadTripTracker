@@ -94,7 +94,7 @@ final class PersistenceController {
         // Create a new share
         let share = CKShare(rootRecord: record)
         share[CKShare.SystemFieldKey.title] = trip.name
-        share.publicPermission = .none
+        share.publicPermission = .readWrite
 
         // Save both the record and the share
         let modifyOp = CKModifyRecordsOperation(recordsToSave: [record, share])
