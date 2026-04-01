@@ -85,9 +85,26 @@ final class PersistenceController {
 
         // Check if a share already exists for this record
         if let existingShareRef = record.share {
-            let existingShare = try await privateDB.record(for: existingShareRef.recordID)
-            if let url = (existingShare as? CKShare)?.url ?? URL(string: existingShare.value(forKey: "url") as? String ?? "") {
-                return url
+            let existingRecord = try await privateDB.record(for: existingShareRef.recordID)
+            if let existingShare = existingRecord as? CKShare {
+                // Ensure permission is up to date
+                if existingShare.publicPermission != .readWrite {
+                    existingShare.publicPermission = .readWrite
+                    let updateOp = CKModifyRecordsOperation(recordsToSave: [existingShare])
+                    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                        updateOp.modifyRecordsResultBlock = { result in
+                            switch result {
+                            case .success: continuation.resume()
+                            case .failure(let error): continuation.resume(throwing: error)
+                            }
+                        }
+                        self.privateDB.add(updateOp)
+                    }
+                    print("[PersistenceController] Updated existing share permission to .readWrite")
+                }
+                if let url = existingShare.url {
+                    return url
+                }
             }
         }
 
