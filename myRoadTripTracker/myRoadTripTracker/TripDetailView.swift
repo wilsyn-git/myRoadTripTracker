@@ -17,6 +17,7 @@ struct TripDetailView: View {
     @Bindable var trip: Trip
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(PersistenceController.self) private var persistenceController
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var selectedTab: TripTab = .plates
@@ -27,6 +28,7 @@ struct TripDetailView: View {
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
     @State private var showingParticipants = false
+    @State private var isOwner = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,7 +73,6 @@ struct TripDetailView: View {
                 } label: {
                     Label("Share Trip", systemImage: "square.and.arrow.up")
                 }
-                .disabled(trip.isClosed)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
@@ -89,10 +90,12 @@ struct TripDetailView: View {
                         systemImage: trip.isClosed ? "lock.open" : "lock"
                     )
                 }
+                .disabled(!isOwner)
             }
         }
         .task {
             cloudKitUserID = await CloudKitUserHelper.currentUserID()
+            isOwner = persistenceController.isOwner(of: trip)
             if trip.participants.isEmpty {
                 let participant = TripParticipant(
                     displayName: currentUserName,
@@ -108,11 +111,11 @@ struct TripDetailView: View {
                 showingNamePrompt = true
             }
         }
-        .cloudSharingSheet(for: trip, isPresented: $showingSharingSheet)
+        .cloudSharingSheet(for: trip, persistenceController: persistenceController, isPresented: $showingSharingSheet)
         .sheet(isPresented: $showingParticipants) {
             ParticipantsView(
                 trip: trip,
-                isOwner: true,
+                isOwner: isOwner,
                 currentUserID: cloudKitUserID
             )
         }

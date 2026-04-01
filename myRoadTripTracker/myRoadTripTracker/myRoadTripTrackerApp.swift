@@ -1,38 +1,28 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 
 @main
 struct myRoadTripTrackerApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
-    let modelContainer: ModelContainer
-
-    init() {
-        let schema = Schema([
-            Trip.self,
-            PlateSighting.self,
-            ObservationEntry.self,
-            TripParticipant.self,
-        ])
-        let configuration = ModelConfiguration(
-            schema: schema,
-            cloudKitDatabase: .automatic
-        )
-        do {
-            modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
-    }
+    @State private var persistenceController = PersistenceController()
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
-                ContentView()
-            } else {
-                OnboardingView()
+            Group {
+                if hasCompletedOnboarding {
+                    ContentView()
+                } else {
+                    OnboardingView()
+                }
+            }
+            .task {
+                appDelegate.persistenceController = persistenceController
             }
         }
-        .modelContainer(modelContainer)
+        .modelContainer(persistenceController.modelContainer)
+        .environment(persistenceController)
     }
 }

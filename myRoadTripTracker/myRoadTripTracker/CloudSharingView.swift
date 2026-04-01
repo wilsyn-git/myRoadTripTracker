@@ -6,125 +6,141 @@
 //
 
 import CloudKit
+import CoreData
+import LinkPresentation
 import SwiftData
 import SwiftUI
 
-/// Presents the system CloudKit sharing UI for a Trip.
-/// Falls back to an error message if CloudKit is not available.
+/// Activity item source that provides a CKShare URL with rich link metadata.
+final class ShareActivityItem: NSObject, UIActivityItemSource {
+    let url: URL
+    let title: String
+
+    init(url: URL, title: String) {
+        self.url = url
+        self.title = title
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        url
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        url
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.title = title
+        metadata.url = url
+        return metadata
+    }
+}
+
+/// Presents UIActivityViewController with a CKShare URL.
+struct CloudSharingView: UIViewControllerRepresentable {
+    let shareURL: URL
+    let tripName: String
+    let onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let item = ShareActivityItem(url: shareURL, title: tripName)
+        let controller = UIActivityViewController(
+            activityItems: [item],
+            applicationActivities: nil
+        )
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            onDismiss()
+        }
+        return controller
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIActivityViewController,
+        context: Context
+    ) {}
+}
+
+/// ViewModifier that creates/fetches a CKShare then presents the standard share sheet.
 struct CloudSharingSheet: ViewModifier {
     let trip: Trip
+    let persistenceController: PersistenceController
     @Binding var isPresented: Bool
+    @State private var shareURL: URL?
     @State private var sharingError: String?
     @State private var showingError = false
+    @State private var showingSheet = false
 
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $isPresented) {
-                CloudSharingAttemptView(
-                    trip: trip,
-                    onError: { error in
-                        sharingError = error
-                        isPresented = false
-                        showingError = true
-                    },
-                    onDismiss: {
-                        isPresented = false
-                    }
-                )
+            .onChange(of: isPresented) { _, shouldPresent in
+                guard shouldPresent else { return }
+                Task {
+                    await prepareShare()
+                }
+            }
+            .sheet(isPresented: $showingSheet, onDismiss: { isPresented = false }) {
+                if let shareURL {
+                    CloudSharingView(
+                        shareURL: shareURL,
+                        tripName: trip.name,
+                        onDismiss: {
+                            showingSheet = false
+                        }
+                    )
+                }
             }
             .alert("Sharing Unavailable", isPresented: $showingError) {
                 Button("OK") { sharingError = nil }
             } message: {
-                Text(sharingError ?? "Unable to share this trip. Please make sure you're signed into iCloud and try again.")
+                Text(
+                    sharingError
+                        ?? "Unable to share this trip. Please make sure you're signed into iCloud and try again."
+                )
             }
     }
-}
 
-/// Attempts to present UICloudSharingController, handling failures gracefully.
-struct CloudSharingAttemptView: UIViewControllerRepresentable {
-    let trip: Trip
-    let onError: (String) -> Void
-    let onDismiss: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onError: onError, onDismiss: onDismiss)
-    }
-
-    @available(iOS, deprecated: 17.0, message: "No SwiftUI-native CloudKit sharing replacement exists yet")
-    func makeUIViewController(context: Context) -> UIViewController {
-        let container = CKContainer(identifier: "iCloud.com.tentenbits.myRoadTripTracker")
-
-        let controller = UICloudSharingController { sharingController, preparationCompletion in
-            let privateDB = container.privateCloudDatabase
-
-            // Create a new CKRecord zone for sharing
-            let zone = CKRecordZone(zoneName: "com.apple.coredata.cloudkit.zone")
-            let recordID = CKRecord.ID(recordName: UUID().uuidString, zoneID: zone.zoneID)
-            let record = CKRecord(recordType: "CD_Trip", recordID: recordID)
-            record["CD_name"] = self.trip.name as CKRecordValue
-
-            let share = CKShare(rootRecord: record)
-            share[CKShare.SystemFieldKey.title] = self.trip.name as CKRecordValue
-            share.publicPermission = .none
-
-            let operation = CKModifyRecordsOperation(
-                recordsToSave: [record, share],
-                recordIDsToDelete: nil
-            )
-            operation.modifyRecordsResultBlock = { result in
-                switch result {
-                case .success:
-                    preparationCompletion(share, container, nil)
-                case .failure(let error):
-                    preparationCompletion(nil, nil, error)
-                }
+    @MainActor
+    private func prepareShare() async {
+        // Check for existing share first
+        if let existing = persistenceController.fetchShare(for: trip),
+            let url = existing.url
+        {
+            shareURL = url
+            showingSheet = true
+            return
+        }
+        // Create a new share
+        do {
+            let (share, _) = try await persistenceController.shareTrip(trip)
+            guard let url = share.url else {
+                throw PersistenceController.SharingError.tripNotFound
             }
-            privateDB.add(operation)
-        }
-
-        controller.availablePermissions = [.allowReadWrite]
-        controller.delegate = context.coordinator
-
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-
-    class Coordinator: NSObject, UICloudSharingControllerDelegate {
-        let onError: (String) -> Void
-        let onDismiss: () -> Void
-
-        init(onError: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
-            self.onError = onError
-            self.onDismiss = onDismiss
-        }
-
-        func cloudSharingController(
-            _ csc: UICloudSharingController,
-            failedToSaveShareWithError error: Error
-        ) {
-            print("Failed to save share: \(error)")
-            onError("Failed to share trip: \(error.localizedDescription)")
-        }
-
-        func itemTitle(for csc: UICloudSharingController) -> String? {
-            return "Road Trip"
-        }
-
-        func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-            print("Share saved successfully")
-            onDismiss()
-        }
-
-        func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
-            print("Sharing stopped")
-            onDismiss()
+            shareURL = url
+            showingSheet = true
+        } catch {
+            isPresented = false
+            sharingError = error.localizedDescription
+            showingError = true
         }
     }
 }
 
 extension View {
-    func cloudSharingSheet(for trip: Trip, isPresented: Binding<Bool>) -> some View {
-        modifier(CloudSharingSheet(trip: trip, isPresented: isPresented))
+    func cloudSharingSheet(
+        for trip: Trip, persistenceController: PersistenceController,
+        isPresented: Binding<Bool>
+    ) -> some View {
+        modifier(
+            CloudSharingSheet(
+                trip: trip, persistenceController: persistenceController,
+                isPresented: isPresented))
     }
 }
