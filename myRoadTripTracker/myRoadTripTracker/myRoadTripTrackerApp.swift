@@ -6,21 +6,23 @@ import CloudKit
 struct myRoadTripTrackerApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
-    @StateObject private var persistenceController = PersistenceController()
+    @State private var persistenceController = PersistenceController()
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
-                ContentView()
-            } else {
-                OnboardingView()
+            Group {
+                if hasCompletedOnboarding {
+                    ContentView()
+                } else {
+                    OnboardingView()
+                }
+            }
+            .onOpenURL { url in
+                // Handle incoming CloudKit share URLs
+                // The system will deliver CKShare.Metadata via userDidAcceptCloudKitShareWith
             }
         }
         .modelContainer(persistenceController.modelContainer)
-        .environmentObject(persistenceController)
-        .onOpenURL { url in
-            // Handle incoming CloudKit share URLs
-            // The system will deliver CKShare.Metadata via userDidAcceptCloudKitShareWith
-        }
+        .environment(persistenceController)
     }
 }

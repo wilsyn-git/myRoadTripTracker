@@ -17,7 +17,7 @@ struct TripDetailView: View {
     @Bindable var trip: Trip
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var persistenceController: PersistenceController
+    @Environment(PersistenceController.self) private var persistenceController
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var selectedTab: TripTab = .plates

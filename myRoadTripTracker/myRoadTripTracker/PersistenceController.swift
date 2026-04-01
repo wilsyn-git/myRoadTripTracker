@@ -1,12 +1,11 @@
 import CloudKit
-import Combine
 import CoreData
 import SwiftData
 import SwiftUI
 
 @MainActor
-final class PersistenceController: ObservableObject {
-    nonisolated let objectWillChange = ObjectWillChangePublisher()
+@Observable
+final class PersistenceController {
 
     let modelContainer: ModelContainer
     let cloudKitContainer: NSPersistentCloudKitContainer
