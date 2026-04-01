@@ -109,20 +109,8 @@ struct CloudSharingSheet: ViewModifier {
 
     @MainActor
     private func prepareShare() async {
-        // Check for existing share first
-        if let existing = persistenceController.fetchShare(for: trip),
-            let url = existing.url
-        {
-            shareURL = url
-            showingSheet = true
-            return
-        }
-        // Create a new share
         do {
-            let (share, _) = try await persistenceController.shareTrip(trip)
-            guard let url = share.url else {
-                throw PersistenceController.SharingError.tripNotFound
-            }
+            let url = try await persistenceController.shareTrip(trip)
             shareURL = url
             showingSheet = true
         } catch {
