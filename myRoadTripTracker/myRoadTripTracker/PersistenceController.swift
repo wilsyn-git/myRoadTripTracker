@@ -42,20 +42,46 @@ final class PersistenceController {
 
     /// Find the CloudKit record for a trip by querying the synced CD_Trip records.
     private func fetchCKRecord(for trip: Trip) async throws -> CKRecord {
-        // SwiftData syncs to CloudKit with CD_ prefix on record types and attributes
-        let predicate = NSPredicate(format: "CD_tripID == %@", trip.tripID.uuidString)
-        let query = CKQuery(recordType: "CD_Trip", predicate: predicate)
+        // First, try fetching ALL CD_Trip records to see what's synced
+        let allPredicate = NSPredicate(value: true)
+        let allQuery = CKQuery(recordType: "CD_Trip", predicate: allPredicate)
 
-        let (matchResults, _) = try await privateDB.records(
-            matching: query,
+        let (allResults, _) = try await privateDB.records(
+            matching: allQuery,
             inZoneWith: zoneID
         )
 
-        guard let (_, result) = matchResults.first else {
-            throw SharingError.tripNotFound
+        print("[PersistenceController] Found \(allResults.count) CD_Trip records in CloudKit")
+        for (recordID, result) in allResults {
+            if let record = try? result.get() {
+                let name = record["CD_name"] as? String ?? "?"
+                let tripID = record["CD_tripID"] as? String ?? "no tripID"
+                print("[PersistenceController]   - \(name) (CD_tripID=\(tripID), recordName=\(recordID.recordName))")
+            }
         }
 
-        return try result.get()
+        // Try to match by tripID first
+        let targetID = trip.tripID.uuidString
+        for (_, result) in allResults {
+            if let record = try? result.get(),
+               let recordTripID = record["CD_tripID"] as? String,
+               recordTripID == targetID {
+                print("[PersistenceController] Matched by tripID")
+                return record
+            }
+        }
+
+        // Fallback: match by name + creation date if tripID hasn't synced yet
+        for (_, result) in allResults {
+            if let record = try? result.get(),
+               let recordName = record["CD_name"] as? String,
+               recordName == trip.name {
+                print("[PersistenceController] Matched by name fallback")
+                return record
+            }
+        }
+
+        throw SharingError.tripNotFound
     }
 
     /// Create a CKShare for a trip and return the share URL.
