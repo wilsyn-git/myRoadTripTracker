@@ -115,10 +115,32 @@ final class PersistenceController {
     /// Find the Core Data managed object corresponding to a SwiftData Trip (by tripID UUID).
     private func fetchManagedObject(for trip: Trip) -> NSManagedObject? {
         let context = cloudKitContainer.viewContext
+        // Refresh context to pick up any changes from SwiftData's coordinator
+        context.refreshAllObjects()
+
         let request = NSFetchRequest<NSManagedObject>(entityName: "Trip")
         request.predicate = NSPredicate(format: "tripID == %@", trip.tripID as CVarArg)
         request.fetchLimit = 1
-        return try? context.fetch(request).first
+
+        do {
+            let results = try context.fetch(request)
+            print("[PersistenceController] fetchManagedObject: found \(results.count) trips for tripID=\(trip.tripID)")
+            if results.isEmpty {
+                // Debug: list all trips in Core Data to see what's there
+                let allRequest = NSFetchRequest<NSManagedObject>(entityName: "Trip")
+                let allTrips = try context.fetch(allRequest)
+                print("[PersistenceController] All trips in Core Data (\(allTrips.count)):")
+                for t in allTrips {
+                    let name = t.value(forKey: "name") as? String ?? "?"
+                    let id = t.value(forKey: "tripID") as? UUID ?? UUID()
+                    print("  - \(name) (tripID=\(id))")
+                }
+            }
+            return results.first
+        } catch {
+            print("[PersistenceController] fetchManagedObject error: \(error)")
+            return nil
+        }
     }
 
     /// Create a CKShare for a trip and return the share + CKContainer for UICloudSharingController.
@@ -127,16 +149,23 @@ final class PersistenceController {
             throw SharingError.tripNotFound
         }
 
-        let (_, share, ckContainer) = try await cloudKitContainer.share(
-            [managedObject],
-            to: nil
-        )
-        share[CKShare.SystemFieldKey.title] = trip.name
+        print("[PersistenceController] shareTrip: sharing managed object \(managedObject.objectID), store: \(managedObject.objectID.persistentStore?.url?.lastPathComponent ?? "unknown")")
 
-        // Save the context to persist the share
-        try cloudKitContainer.viewContext.save()
+        do {
+            let (_, share, ckContainer) = try await cloudKitContainer.share(
+                [managedObject],
+                to: nil
+            )
+            share[CKShare.SystemFieldKey.title] = trip.name
 
-        return (share, ckContainer)
+            // Save the context to persist the share
+            try cloudKitContainer.viewContext.save()
+
+            return (share, ckContainer)
+        } catch {
+            print("[PersistenceController] shareTrip error: \(error)")
+            throw error
+        }
     }
 
     /// Fetch an existing CKShare for a trip, if one exists.
