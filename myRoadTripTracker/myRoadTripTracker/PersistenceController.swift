@@ -25,6 +25,10 @@ final class PersistenceController {
             fatalError("Failed to create NSManagedObjectModel from SwiftData models")
         }
 
+        #if DEBUG
+        Self.logModelInfo(mom)
+        #endif
+
         // 2. Determine store URLs
         let baseURL = URL.applicationSupportDirectory.appending(path: "myRoadTripTracker")
         // Ensure directory exists
@@ -171,6 +175,25 @@ final class PersistenceController {
         }
         return store == sharedPersistentStore
     }
+
+    // MARK: - Debug Helpers
+
+    #if DEBUG
+    /// Logs the entity names and attribute names/types from the generated NSManagedObjectModel.
+    /// Use this to verify that makeManagedObjectModel(for:) produces plain Swift class names
+    /// (e.g. "Trip", not "CD_Trip") and unmodified attribute names (e.g. "tripID", not "CD_tripID").
+    /// The CD_ prefix only appears in CloudKit record type names — not in the Core Data model itself.
+    private static func logModelInfo(_ mom: NSManagedObjectModel) {
+        print("[PersistenceController] --- NSManagedObjectModel entity map ---")
+        for entity in mom.entities {
+            print("[PersistenceController] Entity: \(entity.name ?? "unnamed")")
+            for (name, attr) in entity.attributesByName {
+                print("  - \(name): \(attr.attributeType.rawValue)")
+            }
+        }
+        print("[PersistenceController] --- end entity map ---")
+    }
+    #endif
 
     enum SharingError: LocalizedError {
         case tripNotFound
