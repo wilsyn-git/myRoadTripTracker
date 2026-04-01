@@ -11,10 +11,16 @@ import SwiftData
 import SwiftUI
 
 /// Wraps UICloudSharingController for SwiftUI presentation.
-/// Requires a pre-created CKShare — use CloudSharingSheet modifier which handles creation.
+/// Handles both new shares (invitation flow) and existing shares (management flow).
 struct CloudSharingView: UIViewControllerRepresentable {
-    let share: CKShare
-    let container: CKContainer
+    enum Mode {
+        /// Existing share — show management UI
+        case manage(share: CKShare, container: CKContainer)
+        /// New share — show invitation UI, create share when user picks contacts
+        case invite(persistenceController: PersistenceController, trip: Trip)
+    }
+
+    let mode: Mode
     let tripName: String
     let onError: (String) -> Void
     let onDismiss: () -> Void
@@ -23,14 +29,35 @@ struct CloudSharingView: UIViewControllerRepresentable {
         Coordinator(tripName: tripName, onError: onError, onDismiss: onDismiss)
     }
 
-    func makeUIViewController(context: Context) -> UICloudSharingController {
-        let controller = UICloudSharingController(share: share, container: container)
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller: UICloudSharingController
+
+        switch mode {
+        case .manage(let share, let container):
+            controller = UICloudSharingController(share: share, container: container)
+
+        case .invite(let persistenceController, let trip):
+            // The preparation handler is deprecated in iOS 17, but Apple provides
+            // no replacement for CloudKit/Core Data sharing. This is still the
+            // correct API for presenting the invitation flow.
+            controller = UICloudSharingController { _, preparationCompletion in
+                Task { @MainActor in
+                    do {
+                        let (share, ckContainer) = try await persistenceController.shareTrip(trip)
+                        preparationCompletion(share, ckContainer, nil)
+                    } catch {
+                        preparationCompletion(nil, nil, error)
+                    }
+                }
+            }
+        }
+
         controller.availablePermissions = [.allowReadWrite]
         controller.delegate = context.coordinator
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: UICloudSharingController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 
     class Coordinator: NSObject, UICloudSharingControllerDelegate {
         let tripName: String
@@ -67,66 +94,46 @@ struct CloudSharingView: UIViewControllerRepresentable {
     }
 }
 
-/// ViewModifier that creates/fetches a CKShare then presents the sharing sheet.
+/// ViewModifier that presents the CloudKit sharing sheet.
+/// New shares get the invitation flow; existing shares get the management flow.
 struct CloudSharingSheet: ViewModifier {
     let trip: Trip
     let persistenceController: PersistenceController
     @Binding var isPresented: Bool
-    @State private var activeShare: CKShare?
     @State private var sharingError: String?
     @State private var showingError = false
-    @State private var showingSheet = false
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: isPresented) { _, shouldPresent in
-                guard shouldPresent else { return }
-                Task {
-                    await prepareShare()
-                }
-            }
-            .sheet(isPresented: $showingSheet, onDismiss: { isPresented = false }) {
-                if let share = activeShare {
-                    CloudSharingView(
-                        share: share,
-                        container: CKContainer(identifier: PersistenceController.cloudKitContainerID),
-                        tripName: trip.name,
-                        onError: { error in
-                            sharingError = error
-                            showingSheet = false
-                            showingError = true
-                        },
-                        onDismiss: {
-                            showingSheet = false
-                        }
+            .sheet(isPresented: $isPresented) {
+                let existingShare = persistenceController.fetchShare(for: trip)
+                let mode: CloudSharingView.Mode = if let existingShare {
+                    .manage(
+                        share: existingShare,
+                        container: CKContainer(identifier: PersistenceController.cloudKitContainerID)
                     )
+                } else {
+                    .invite(persistenceController: persistenceController, trip: trip)
                 }
+
+                CloudSharingView(
+                    mode: mode,
+                    tripName: trip.name,
+                    onError: { error in
+                        sharingError = error
+                        isPresented = false
+                        showingError = true
+                    },
+                    onDismiss: {
+                        isPresented = false
+                    }
+                )
             }
             .alert("Sharing Unavailable", isPresented: $showingError) {
                 Button("OK") { sharingError = nil }
             } message: {
                 Text(sharingError ?? "Unable to share this trip. Please make sure you're signed into iCloud and try again.")
             }
-    }
-
-    @MainActor
-    private func prepareShare() async {
-        // Check for existing share first
-        if let existing = persistenceController.fetchShare(for: trip) {
-            activeShare = existing
-            showingSheet = true
-            return
-        }
-        // Create a new share
-        do {
-            let (share, _) = try await persistenceController.shareTrip(trip)
-            activeShare = share
-            showingSheet = true
-        } catch {
-            isPresented = false
-            sharingError = error.localizedDescription
-            showingError = true
-        }
     }
 }
 
