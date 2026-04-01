@@ -4,6 +4,7 @@ import CloudKit
 
 @main
 struct myRoadTripTrackerApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     @State private var persistenceController = PersistenceController()
@@ -17,9 +18,8 @@ struct myRoadTripTrackerApp: App {
                     OnboardingView()
                 }
             }
-            .onOpenURL { url in
-                // Handle incoming CloudKit share URLs
-                // The system will deliver CKShare.Metadata via userDidAcceptCloudKitShareWith
+            .task {
+                appDelegate.persistenceController = persistenceController
             }
         }
         .modelContainer(persistenceController.modelContainer)
