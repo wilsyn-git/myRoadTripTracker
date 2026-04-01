@@ -80,6 +80,8 @@ final class PersistenceController {
         self.cloudKitContainer = container
         self.privatePersistentStore = loadedPrivateStore
         self.sharedPersistentStore = loadedSharedStore
+        assert(privatePersistentStore != nil, "Private persistent store failed to load")
+        assert(sharedPersistentStore != nil, "Shared persistent store failed to load")
 
         // 4. Create SwiftData ModelContainer pointing at same store files, CloudKit disabled
         let schema = Schema(modelTypes)

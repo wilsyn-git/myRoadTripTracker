@@ -28,6 +28,7 @@ struct TripDetailView: View {
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
     @State private var showingParticipants = false
+    @State private var isOwner = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,7 +73,6 @@ struct TripDetailView: View {
                 } label: {
                     Label("Share Trip", systemImage: "square.and.arrow.up")
                 }
-                .disabled(trip.isClosed)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
@@ -90,10 +90,12 @@ struct TripDetailView: View {
                         systemImage: trip.isClosed ? "lock.open" : "lock"
                     )
                 }
+                .disabled(!isOwner)
             }
         }
         .task {
             cloudKitUserID = await CloudKitUserHelper.currentUserID()
+            isOwner = persistenceController.isOwner(of: trip)
             if trip.participants.isEmpty {
                 let participant = TripParticipant(
                     displayName: currentUserName,
@@ -113,7 +115,7 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingParticipants) {
             ParticipantsView(
                 trip: trip,
-                isOwner: persistenceController.isOwner(of: trip),
+                isOwner: isOwner,
                 currentUserID: cloudKitUserID
             )
         }
