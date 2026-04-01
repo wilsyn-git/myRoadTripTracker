@@ -17,6 +17,7 @@ struct TripDetailView: View {
     @Bindable var trip: Trip
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var persistenceController: PersistenceController
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var selectedTab: TripTab = .plates
@@ -108,11 +109,11 @@ struct TripDetailView: View {
                 showingNamePrompt = true
             }
         }
-        .cloudSharingSheet(for: trip, isPresented: $showingSharingSheet)
+        .cloudSharingSheet(for: trip, persistenceController: persistenceController, isPresented: $showingSharingSheet)
         .sheet(isPresented: $showingParticipants) {
             ParticipantsView(
                 trip: trip,
-                isOwner: true,
+                isOwner: persistenceController.isOwner(of: trip),
                 currentUserID: cloudKitUserID
             )
         }
