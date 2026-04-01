@@ -69,6 +69,7 @@ struct CloudSharingView: UIViewControllerRepresentable {
 }
 
 /// ViewModifier that creates/fetches a CKShare then presents the standard share sheet.
+/// Retries automatically if the trip hasn't synced to iCloud yet.
 struct CloudSharingSheet: ViewModifier {
     let trip: Trip
     let persistenceController: PersistenceController
@@ -77,6 +78,7 @@ struct CloudSharingSheet: ViewModifier {
     @State private var sharingError: String?
     @State private var showingError = false
     @State private var showingSheet = false
+    @State private var isSyncing = false
 
     func body(content: Content) -> some View {
         content
@@ -97,6 +99,23 @@ struct CloudSharingSheet: ViewModifier {
                     )
                 }
             }
+            .overlay {
+                if isSyncing {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .controlSize(.large)
+                            Text("Syncing to iCloud...")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(24)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+            }
             .alert("Sharing Unavailable", isPresented: $showingError) {
                 Button("OK") { sharingError = nil }
             } message: {
@@ -109,15 +128,30 @@ struct CloudSharingSheet: ViewModifier {
 
     @MainActor
     private func prepareShare() async {
-        do {
-            let url = try await persistenceController.shareTrip(trip)
-            shareURL = url
-            showingSheet = true
-        } catch {
-            isPresented = false
-            sharingError = error.localizedDescription
-            showingError = true
+        isSyncing = true
+        // Retry up to 5 times with 2-second delays to wait for CloudKit sync
+        for attempt in 1...5 {
+            do {
+                let url = try await persistenceController.shareTrip(trip)
+                isSyncing = false
+                shareURL = url
+                showingSheet = true
+                return
+            } catch is PersistenceController.SharingError where attempt < 5 {
+                print("[CloudSharingSheet] Trip not synced yet, retrying in 2s (attempt \(attempt)/5)")
+                try? await Task.sleep(for: .seconds(2))
+            } catch {
+                isSyncing = false
+                isPresented = false
+                sharingError = error.localizedDescription
+                showingError = true
+                return
+            }
         }
+        isSyncing = false
+        isPresented = false
+        sharingError = "Trip hasn't synced to iCloud yet. Please check your internet connection and try again in a moment."
+        showingError = true
     }
 }
 
