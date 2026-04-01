@@ -13,15 +13,16 @@ struct PlateSightingsSection: View {
     @Bindable var trip: Trip
     var locationManager: LocationManager
     @Environment(\.modelContext) private var modelContext
-    
+    @State private var locationToRemove: Location?
+
     private var seenCount: Int {
         trip.plateSightings.count
     }
-    
+
     private var totalCount: Int {
         Location.allLocations.count
     }
-    
+
     var body: some View {
         Section {
             ForEach(Location.allLocations) { location in
@@ -29,7 +30,7 @@ struct PlateSightingsSection: View {
                     location: location,
                     isSeen: isSeen(location),
                     onTap: { markAsSeen(location) },
-                    onRemove: { unmarkAsSeen(location) }
+                    onRemove: { locationToRemove = location }
                 )
                 .disabled(trip.isClosed)
             }
@@ -39,6 +40,27 @@ struct PlateSightingsSection: View {
                 Spacer()
                 Text("\(seenCount)/\(totalCount)")
                     .fontWeight(.semibold)
+            }
+        }
+        .alert(
+            "Remove Sighting",
+            isPresented: Binding(
+                get: { locationToRemove != nil },
+                set: { if !$0 { locationToRemove = nil } }
+            )
+        ) {
+            Button("Remove", role: .destructive) {
+                if let location = locationToRemove {
+                    unmarkAsSeen(location)
+                }
+                locationToRemove = nil
+            }
+            Button("Cancel", role: .cancel) {
+                locationToRemove = nil
+            }
+        } message: {
+            if let location = locationToRemove {
+                Text("Remove the \(location.name) plate sighting? This will delete the location data.")
             }
         }
     }
@@ -84,7 +106,7 @@ struct PlateRow: View {
     let onRemove: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: { isSeen ? onRemove() : onTap() }) {
             HStack(spacing: 12) {
                 Image(location.flagImageName)
                     .resizable()

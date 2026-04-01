@@ -40,6 +40,14 @@ struct TripDetailView: View {
                 .disabled(trip.isClosed)
                 .padding(.horizontal)
                 .padding(.top, 8)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            isNameFieldFocused = false
+                        }
+                    }
+                }
                 .task {
                     if isNewTrip {
                         try? await Task.sleep(for: .milliseconds(100))
