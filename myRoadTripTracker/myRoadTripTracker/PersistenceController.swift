@@ -40,45 +40,40 @@ final class PersistenceController {
 
     // MARK: - Sharing APIs
 
-    /// Find the CloudKit record for a trip by querying the synced CD_Trip records.
+    /// Find the CloudKit record for a trip by fetching all records from the zone.
+    /// Uses recordZoneChanges instead of CKQuery to avoid needing queryable field indexes.
     private func fetchCKRecord(for trip: Trip) async throws -> CKRecord {
-        // First, try fetching ALL CD_Trip records to see what's synced
-        let allPredicate = NSPredicate(value: true)
-        let allQuery = CKQuery(recordType: "CD_Trip", predicate: allPredicate)
-
-        let (allResults, _) = try await privateDB.records(
-            matching: allQuery,
-            inZoneWith: zoneID
+        // Fetch all records from the CoreData CloudKit zone
+        let changes = try await privateDB.recordZoneChanges(
+            inZoneWith: zoneID,
+            since: nil
         )
 
-        print("[PersistenceController] Found \(allResults.count) CD_Trip records in CloudKit")
-        for (recordID, result) in allResults {
-            if let record = try? result.get() {
-                let name = record["CD_name"] as? String ?? "?"
-                let tripID = record["CD_tripID"] as? String ?? "no tripID"
-                print("[PersistenceController]   - \(name) (CD_tripID=\(tripID), recordName=\(recordID.recordName))")
-            }
+        // Filter to CD_Trip records only
+        let tripRecords = changes.modificationResultsByID.compactMap { (_, result) -> CKRecord? in
+            guard let record = try? result.get().record,
+                  record.recordType == "CD_Trip" else { return nil }
+            return record
+        }
+
+        print("[PersistenceController] Found \(tripRecords.count) CD_Trip records in CloudKit")
+        for record in tripRecords {
+            let name = record["CD_name"] as? String ?? "?"
+            let tripID = record["CD_tripID"] as? String ?? "no tripID"
+            print("[PersistenceController]   - \(name) (CD_tripID=\(tripID), recordName=\(record.recordID.recordName))")
         }
 
         // Try to match by tripID first
         let targetID = trip.tripID.uuidString
-        for (_, result) in allResults {
-            if let record = try? result.get(),
-               let recordTripID = record["CD_tripID"] as? String,
-               recordTripID == targetID {
-                print("[PersistenceController] Matched by tripID")
-                return record
-            }
+        if let match = tripRecords.first(where: { ($0["CD_tripID"] as? String) == targetID }) {
+            print("[PersistenceController] Matched by tripID")
+            return match
         }
 
-        // Fallback: match by name + creation date if tripID hasn't synced yet
-        for (_, result) in allResults {
-            if let record = try? result.get(),
-               let recordName = record["CD_name"] as? String,
-               recordName == trip.name {
-                print("[PersistenceController] Matched by name fallback")
-                return record
-            }
+        // Fallback: match by name if tripID hasn't synced yet
+        if let match = tripRecords.first(where: { ($0["CD_name"] as? String) == trip.name }) {
+            print("[PersistenceController] Matched by name fallback")
+            return match
         }
 
         throw SharingError.tripNotFound
