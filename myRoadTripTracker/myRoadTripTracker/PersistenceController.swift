@@ -63,16 +63,10 @@ final class PersistenceController {
             print("[PersistenceController]   - \(name) (CD_tripID=\(tripID), recordName=\(record.recordID.recordName))")
         }
 
-        // Try to match by tripID first
+        // Match strictly by tripID
         let targetID = trip.tripID.uuidString
         if let match = tripRecords.first(where: { ($0["CD_tripID"] as? String) == targetID }) {
             print("[PersistenceController] Matched by tripID")
-            return match
-        }
-
-        // Fallback: match by name if tripID hasn't synced yet
-        if let match = tripRecords.first(where: { ($0["CD_name"] as? String) == trip.name }) {
-            print("[PersistenceController] Matched by name fallback")
             return match
         }
 
