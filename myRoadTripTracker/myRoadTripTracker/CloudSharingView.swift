@@ -6,13 +6,88 @@
 //
 
 import CloudKit
+import CoreData
 import SwiftData
 import SwiftUI
 
-/// Presents the system CloudKit sharing UI for a Trip.
-/// Falls back to an error message if CloudKit is not available.
+/// Wraps UICloudSharingController for SwiftUI presentation.
+struct CloudSharingView: UIViewControllerRepresentable {
+    let trip: Trip
+    let persistenceController: PersistenceController
+    let onError: (String) -> Void
+    let onDismiss: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(tripName: trip.name, onError: onError, onDismiss: onDismiss)
+    }
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        // Check for existing share
+        if let existingShare = persistenceController.fetchShare(for: trip) {
+            let ckContainer = CKContainer(identifier: PersistenceController.cloudKitContainerID)
+            let controller = UICloudSharingController(share: existingShare, container: ckContainer)
+            controller.availablePermissions = [.allowReadWrite]
+            controller.delegate = context.coordinator
+            return controller
+        }
+
+        // No existing share — use preparation handler to create one
+        let controller = UICloudSharingController { sharingController, preparationCompletion in
+            Task { @MainActor in
+                do {
+                    let (share, container) = try await self.persistenceController.shareTrip(self.trip)
+                    preparationCompletion(share, container, nil)
+                } catch {
+                    preparationCompletion(nil, nil, error)
+                }
+            }
+        }
+        controller.availablePermissions = [.allowReadWrite]
+        controller.delegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+
+    class Coordinator: NSObject, UICloudSharingControllerDelegate {
+        let tripName: String
+        let onError: (String) -> Void
+        let onDismiss: () -> Void
+
+        init(tripName: String, onError: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
+            self.tripName = tripName
+            self.onError = onError
+            self.onDismiss = onDismiss
+        }
+
+        func cloudSharingController(
+            _ csc: UICloudSharingController,
+            failedToSaveShareWithError error: Error
+        ) {
+            print("Failed to save share: \(error)")
+            onError("Failed to share trip: \(error.localizedDescription)")
+        }
+
+        func itemTitle(for csc: UICloudSharingController) -> String? {
+            tripName
+        }
+
+        func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
+            print("Share saved successfully")
+            onDismiss()
+        }
+
+        func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
+            print("Sharing stopped")
+            onDismiss()
+        }
+    }
+}
+
+/// ViewModifier that presents the CloudKit sharing sheet.
 struct CloudSharingSheet: ViewModifier {
     let trip: Trip
+    let persistenceController: PersistenceController
     @Binding var isPresented: Bool
     @State private var sharingError: String?
     @State private var showingError = false
@@ -20,8 +95,9 @@ struct CloudSharingSheet: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $isPresented) {
-                CloudSharingAttemptView(
+                CloudSharingView(
                     trip: trip,
+                    persistenceController: persistenceController,
                     onError: { error in
                         sharingError = error
                         isPresented = false
@@ -40,91 +116,8 @@ struct CloudSharingSheet: ViewModifier {
     }
 }
 
-/// Attempts to present UICloudSharingController, handling failures gracefully.
-struct CloudSharingAttemptView: UIViewControllerRepresentable {
-    let trip: Trip
-    let onError: (String) -> Void
-    let onDismiss: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onError: onError, onDismiss: onDismiss)
-    }
-
-    @available(iOS, deprecated: 17.0, message: "No SwiftUI-native CloudKit sharing replacement exists yet")
-    func makeUIViewController(context: Context) -> UIViewController {
-        let container = CKContainer(identifier: "iCloud.com.tentenbits.myRoadTripTracker")
-
-        let controller = UICloudSharingController { sharingController, preparationCompletion in
-            let privateDB = container.privateCloudDatabase
-
-            // Create a new CKRecord zone for sharing
-            let zone = CKRecordZone(zoneName: "com.apple.coredata.cloudkit.zone")
-            let recordID = CKRecord.ID(recordName: UUID().uuidString, zoneID: zone.zoneID)
-            let record = CKRecord(recordType: "CD_Trip", recordID: recordID)
-            record["CD_name"] = self.trip.name as CKRecordValue
-
-            let share = CKShare(rootRecord: record)
-            share[CKShare.SystemFieldKey.title] = self.trip.name as CKRecordValue
-            share.publicPermission = .none
-
-            let operation = CKModifyRecordsOperation(
-                recordsToSave: [record, share],
-                recordIDsToDelete: nil
-            )
-            operation.modifyRecordsResultBlock = { result in
-                switch result {
-                case .success:
-                    preparationCompletion(share, container, nil)
-                case .failure(let error):
-                    preparationCompletion(nil, nil, error)
-                }
-            }
-            privateDB.add(operation)
-        }
-
-        controller.availablePermissions = [.allowReadWrite]
-        controller.delegate = context.coordinator
-
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-
-    class Coordinator: NSObject, UICloudSharingControllerDelegate {
-        let onError: (String) -> Void
-        let onDismiss: () -> Void
-
-        init(onError: @escaping (String) -> Void, onDismiss: @escaping () -> Void) {
-            self.onError = onError
-            self.onDismiss = onDismiss
-        }
-
-        func cloudSharingController(
-            _ csc: UICloudSharingController,
-            failedToSaveShareWithError error: Error
-        ) {
-            print("Failed to save share: \(error)")
-            onError("Failed to share trip: \(error.localizedDescription)")
-        }
-
-        func itemTitle(for csc: UICloudSharingController) -> String? {
-            return "Road Trip"
-        }
-
-        func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-            print("Share saved successfully")
-            onDismiss()
-        }
-
-        func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
-            print("Sharing stopped")
-            onDismiss()
-        }
-    }
-}
-
 extension View {
-    func cloudSharingSheet(for trip: Trip, isPresented: Binding<Bool>) -> some View {
-        modifier(CloudSharingSheet(trip: trip, isPresented: isPresented))
+    func cloudSharingSheet(for trip: Trip, persistenceController: PersistenceController, isPresented: Binding<Bool>) -> some View {
+        modifier(CloudSharingSheet(trip: trip, persistenceController: persistenceController, isPresented: isPresented))
     }
 }
