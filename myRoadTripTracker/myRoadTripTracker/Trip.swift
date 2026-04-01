@@ -10,6 +10,7 @@ import SwiftData
 
 @Model
 final class Trip {
+    var tripID: UUID = UUID()
     var name: String = "New Trip"
     var createdDate: Date = Date.now
     var isClosed: Bool = false
@@ -38,7 +39,8 @@ final class Trip {
         set { _participants = newValue }
     }
 
-    init(name: String = "New Trip", createdDate: Date = .now) {
+    init(name: String = "New Trip", createdDate: Date = .now, tripID: UUID = UUID()) {
+        self.tripID = tripID
         self.name = name
         self.createdDate = createdDate
         self.isClosed = false
