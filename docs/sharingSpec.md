@@ -343,34 +343,36 @@ These items are explicitly out of scope for v1 but should not be designed agains
 
 ---
 
-## 14. Implementation Phases
+## 14. Implementation Status (as of 2026-04-02)
 
-### Phase 1: CloudKit Foundation
-- Enable CloudKit in the Xcode project
-- Migrate ModelContainer to CloudKit-backed configuration
-- Verify single-user sync works across devices
-- Restructure observation model (single string → append-only entries)
+### Completed
+- **Phase 1: CloudKit Foundation** — CloudKit enabled, ModelContainer with `.automatic` sync, observation model restructured, models CloudKit-compatible
+- **Phase 3: Identity & Onboarding** — onboarding flow, per-trip display names, participant management UI
+- **Phase 4: Trip Lifecycle** — closed/completed state, owner-only close/reopen, sharing indicators in trip list
+- **Phase 5: TestFlight** — app on TestFlight, tested with two users
 
-### Phase 2: Sharing Infrastructure
-- Implement CKShare creation and management
-- Add Trip participant model
-- Build share sheet integration
-- Handle universal link acceptance
-- Implement role-based permissions (owner vs. participant)
+### Partially Completed — Sharing (Phase 2)
+- CKShare creation via direct CloudKit API — **working**
+- Share URL generation and sending via UIActivityViewController — **working**
+- Share acceptance via SceneDelegate (`CKSharingSupported` in Info.plist) — **working**
+- One-way trip import after share acceptance — **working**
+- **NOT working: real-time collaborative sync** — SwiftData with `cloudKitDatabase: .automatic` only syncs the private CloudKit database. Shared records from other users live in the shared database, which SwiftData does not read from. The imported trip is a local copy, not a live-synced object.
 
-### Phase 3: Identity & Onboarding
-- Build onboarding flow (welcome, name setup)
-- Implement per-trip display names
-- Add participant management UI (view participants, remove, leave)
+### Known Limitation: Collaborative Sync
+Full collaborative sync (both users seeing each other's edits in real time) requires `NSPersistentCloudKitContainer` with two stores (private + shared). This is incompatible with SwiftData's internal CloudKit mirroring — they conflict when pointed at the same store. The proper solution is to migrate from SwiftData to Core Data (using `NSPersistentCloudKitContainer` directly with `@FetchRequest`). This is a significant refactor tracked for a future iteration.
 
-### Phase 4: Trip Lifecycle & Polish
-- Add trip closed/completed state and read-only enforcement
-- Add sync status indicators
-- Update trip list with sharing indicators
+### Not Started
+- Universal Links (associated domains + AASA file on web server)
+- Sync status indicators
 - Privacy policy page
-- Location permission flow update (defer to first plate tap)
+- Location permission deferral to first plate tap
 
-### Phase 5: TestFlight & Iteration
-- TestFlight distribution to friends/family
-- Iterate on feedback
+### Architecture Notes (Lessons Learned)
+- **SwiftData + CloudKit sharing is not supported.** SwiftData has no sharing APIs. `cloudKitDatabase: .automatic` only syncs the private database.
+- **`NSPersistentCloudKitContainer` is required for sharing** but cannot coexist with SwiftData's CloudKit mirroring on the same store (duplicate mirroring delegate error).
+- **Direct CloudKit API** (`CKShare(rootRecord:)`) works for creating shares, but the share URL only routes correctly when `CKSharingSupported = true` is in Info.plist.
+- **`CKSharingSupported`** in Info.plist is mandatory for share URL acceptance.
+- **SceneDelegate** (not just AppDelegate) is needed for share acceptance — both `windowScene(_:userDidAcceptCloudKitShareWith:)` and `scene(_:willConnectTo:options:)`.
+- **CloudKit record naming:** SwiftData syncs with `CD_` prefix on record types and attributes in CloudKit (e.g., `CD_Trip`, `CD_name`, `CD_tripID`). The Core Data entity names themselves (via `NSManagedObjectModel.makeManagedObjectModel`) do NOT have the prefix.
+- **CloudKit schema must be deployed to production** for TestFlight builds to sync.
 - Prepare for App Store submission
