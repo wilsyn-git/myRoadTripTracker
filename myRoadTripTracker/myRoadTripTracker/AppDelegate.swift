@@ -2,7 +2,7 @@ import UIKit
 import CloudKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    weak var persistenceController: PersistenceController?
+    var persistenceController: PersistenceController?
 
     func application(
         _ application: UIApplication,
@@ -29,8 +29,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ windowScene: UIWindowScene,
         userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
     ) {
-        Task {
-            await acceptShare(cloudKitShareMetadata)
+        Task { @MainActor in
+            await getPersistenceController()?.acceptShareAndImport(metadata: cloudKitShareMetadata)
         }
     }
 
@@ -41,23 +41,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         if let shareMetadata = connectionOptions.cloudKitShareMetadata {
-            Task {
-                await acceptShare(shareMetadata)
+            Task { @MainActor in
+                await getPersistenceController()?.acceptShareAndImport(metadata: shareMetadata)
             }
         }
     }
 
     @MainActor
-    private func acceptShare(_ metadata: CKShare.Metadata) async {
-        let container = CKContainer(identifier: PersistenceController.cloudKitContainerID)
-        // Only accept if we're a pending participant (not the owner)
-        if metadata.participantRole != .owner && metadata.participantStatus == .pending {
-            do {
-                try await container.accept(metadata)
-                print("[SceneDelegate] Share accepted successfully")
-            } catch {
-                print("[SceneDelegate] Failed to accept share: \(error)")
-            }
-        }
+    private func getPersistenceController() -> PersistenceController? {
+        let appDelegate = UIApplication.shared.delegate as? AppDelegate
+        return appDelegate?.persistenceController
     }
 }

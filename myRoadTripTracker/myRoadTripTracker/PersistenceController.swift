@@ -125,15 +125,55 @@ final class PersistenceController {
         return true
     }
 
-    /// Accept incoming share invitations.
-    func acceptShare(metadata: CKShare.Metadata) {
-        Task {
-            do {
+    /// Accept a share and import the shared trip into the local SwiftData store.
+    func acceptShareAndImport(metadata: CKShare.Metadata) async {
+        do {
+            // Accept the share if we're a pending participant
+            if metadata.participantRole != .owner && metadata.participantStatus == .pending {
                 try await ckContainer.accept(metadata)
-                print("[PersistenceController] Share accepted successfully")
-            } catch {
-                print("[PersistenceController] Failed to accept share: \(error)")
+                print("[PersistenceController] Share accepted")
             }
+
+            // Fetch the shared trip from the shared database
+            guard let rootRecordID = metadata.hierarchicalRootRecordID else {
+                print("[PersistenceController] No root record ID in share metadata")
+                return
+            }
+
+            let sharedDB = ckContainer.sharedCloudDatabase
+            let record = try await sharedDB.record(for: rootRecordID)
+            print("[PersistenceController] Fetched shared record: \(record.recordType), name=\(record["CD_name"] as? String ?? "?")")
+
+            // Check if we already have this trip locally (by tripID)
+            let tripIDString = record["CD_tripID"] as? String ?? ""
+            let context = modelContainer.mainContext
+
+            if let existingTripID = UUID(uuidString: tripIDString) {
+                let descriptor = FetchDescriptor<Trip>(
+                    predicate: #Predicate { $0.tripID == existingTripID }
+                )
+                let existing = try context.fetch(descriptor)
+                if !existing.isEmpty {
+                    print("[PersistenceController] Trip already exists locally, skipping import")
+                    return
+                }
+            }
+
+            // Create a local Trip from the CloudKit record
+            let tripName = record["CD_name"] as? String ?? "Shared Trip"
+            let tripID = UUID(uuidString: tripIDString) ?? UUID()
+            let createdDate = record["CD_createdDate"] as? Date ?? Date.now
+            let isClosed = record["CD_isClosed"] as? Int64 == 1
+
+            let trip = Trip(name: tripName, createdDate: createdDate, tripID: tripID)
+            trip.isClosed = isClosed
+            context.insert(trip)
+            try context.save()
+
+            print("[PersistenceController] Imported shared trip: \(tripName)")
+
+        } catch {
+            print("[PersistenceController] Failed to accept/import share: \(error)")
         }
     }
 
