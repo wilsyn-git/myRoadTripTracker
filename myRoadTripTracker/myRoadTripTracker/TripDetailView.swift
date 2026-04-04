@@ -1,12 +1,5 @@
-//
-//  TripDetailView.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
-import SwiftData
+import CoreData
 
 enum TripTab: String, CaseIterable {
     case plates = "Plates"
@@ -14,9 +7,9 @@ enum TripTab: String, CaseIterable {
 }
 
 struct TripDetailView: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(PersistenceController.self) private var persistenceController
     @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
@@ -32,7 +25,6 @@ struct TripDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Sticky header: trip name
             TextField("Trip Name", text: $trip.name)
                 .font(.title2)
                 .fontWeight(.bold)
@@ -40,6 +32,9 @@ struct TripDetailView: View {
                 .disabled(trip.isClosed)
                 .padding(.horizontal)
                 .padding(.top, 8)
+                .onChange(of: trip.name) { _, _ in
+                    viewContext.save(contextInfo: "tripNameChange")
+                }
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
@@ -55,7 +50,6 @@ struct TripDetailView: View {
                     }
                 }
 
-            // Tab picker
             Picker("Tab", selection: $selectedTab) {
                 ForEach(TripTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -65,7 +59,6 @@ struct TripDetailView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
-            // Tab content
             switch selectedTab {
             case .plates:
                 PlatesTabView(trip: trip, locationManager: locationManager)
@@ -81,6 +74,7 @@ struct TripDetailView: View {
                 } label: {
                     Label("Share Trip", systemImage: "square.and.arrow.up")
                 }
+                .disabled(!isOwner)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
@@ -92,6 +86,7 @@ struct TripDetailView: View {
             ToolbarItem(placement: .secondaryAction) {
                 Button {
                     trip.isClosed.toggle()
+                    viewContext.save(contextInfo: "toggleClosed")
                 } label: {
                     Label(
                         trip.isClosed ? "Reopen Trip" : "Close Trip",
@@ -104,17 +99,18 @@ struct TripDetailView: View {
         .task {
             cloudKitUserID = await CloudKitUserHelper.currentUserID()
             isOwner = persistenceController.isOwner(of: trip)
-            if trip.participants.isEmpty {
+            let participants = trip.participantsArray
+            if participants.isEmpty {
                 let participant = TripParticipant(
+                    context: viewContext,
                     displayName: currentUserName,
                     cloudKitUserID: cloudKitUserID
                 )
                 participant.trip = trip
-                trip.participants.append(participant)
-                modelContext.insert(participant)
+                viewContext.save(contextInfo: "addInitialParticipant")
                 resolvedDisplayName = currentUserName
-            } else if trip.participants.contains(where: { $0.cloudKitUserID == cloudKitUserID }) {
-                resolvedDisplayName = trip.participants.first { $0.cloudKitUserID == cloudKitUserID }?.displayName ?? currentUserName
+            } else if let existing = participants.first(where: { $0.cloudKitUserID == cloudKitUserID }) {
+                resolvedDisplayName = existing.displayName
             } else {
                 showingNamePrompt = true
             }
@@ -130,12 +126,12 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingNamePrompt) {
             JoinTripNameView(trip: trip) { name in
                 let participant = TripParticipant(
+                    context: viewContext,
                     displayName: name,
                     cloudKitUserID: cloudKitUserID
                 )
                 participant.trip = trip
-                trip.participants.append(participant)
-                modelContext.insert(participant)
+                viewContext.save(contextInfo: "joinTrip")
                 resolvedDisplayName = name
                 showingNamePrompt = false
             }
@@ -146,7 +142,7 @@ struct TripDetailView: View {
 // MARK: - Plates Tab
 
 struct PlatesTabView: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     var locationManager: LocationManager
     @State private var showingMapView = false
 
@@ -160,11 +156,11 @@ struct PlatesTabView: View {
                 } label: {
                     Label("View Sightings Map", systemImage: "map")
                 }
-                .disabled(trip.plateSightings.isEmpty)
+                .disabled(trip.plateSightingsArray.isEmpty)
             }
         }
         .sheet(isPresented: $showingMapView) {
-            PlateSightingsMapView(sightings: trip.plateSightings)
+            PlateSightingsMapView(sightings: trip.plateSightingsArray)
         }
     }
 }
@@ -172,7 +168,7 @@ struct PlatesTabView: View {
 // MARK: - Notes Tab
 
 struct NotesTabView: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     let currentUserName: String
 
     var body: some View {
