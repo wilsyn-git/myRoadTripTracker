@@ -30,7 +30,22 @@ final class PersistenceController {
         persistentContainer.viewContext
     }
 
+    /// One-time cleanup: remove old SwiftData store if it exists.
+    private static func removeOldSwiftDataStoreIfNeeded() {
+        let key = "didRemoveOldSwiftDataStore"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let baseURL = NSPersistentContainer.defaultDirectoryURL()
+        // SwiftData's default store uses "default.store" naming
+        let possibleNames = ["default.store", "default.store-shm", "default.store-wal"]
+        for name in possibleNames {
+            let url = baseURL.appendingPathComponent(name)
+            try? FileManager.default.removeItem(at: url)
+        }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
     init() {
+        Self.removeOldSwiftDataStoreIfNeeded()
         persistentContainer = NSPersistentCloudKitContainer(name: "myRoadTripTracker")
 
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
