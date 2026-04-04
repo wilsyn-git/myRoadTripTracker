@@ -1,13 +1,12 @@
 import SwiftUI
-import SwiftData
-import CloudKit
+import CoreData
 
 @main
 struct myRoadTripTrackerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
-    @State private var persistenceController = PersistenceController()
+    @State private var persistenceController = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
@@ -22,7 +21,7 @@ struct myRoadTripTrackerApp: App {
                 appDelegate.persistenceController = persistenceController
             }
         }
-        .modelContainer(persistenceController.modelContainer)
+        .environment(\.managedObjectContext, persistenceController.viewContext)
         .environment(persistenceController)
     }
 }

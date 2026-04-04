@@ -24,32 +24,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-    /// Called when the app is running or suspended and user taps a share URL.
     func windowScene(
         _ windowScene: UIWindowScene,
         userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
     ) {
-        Task { @MainActor in
-            await getPersistenceController()?.acceptShareAndImport(metadata: cloudKitShareMetadata)
-        }
+        PersistenceController.shared.acceptShare(metadata: cloudKitShareMetadata)
     }
 
-    /// Called when the app is launched by tapping a share URL (app was not running).
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
-        if let shareMetadata = connectionOptions.cloudKitShareMetadata {
-            Task { @MainActor in
-                await getPersistenceController()?.acceptShareAndImport(metadata: shareMetadata)
-            }
+        if let metadata = connectionOptions.cloudKitShareMetadata {
+            PersistenceController.shared.acceptShare(metadata: metadata)
         }
-    }
-
-    @MainActor
-    private func getPersistenceController() -> PersistenceController? {
-        let appDelegate = UIApplication.shared.delegate as? AppDelegate
-        return appDelegate?.persistenceController
     }
 }
