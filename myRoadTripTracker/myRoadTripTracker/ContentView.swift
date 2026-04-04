@@ -6,28 +6,37 @@
 //
 
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Trip.createdDate, order: .reverse) private var trips: [Trip]
+    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(PersistenceController.self) private var persistenceController
+
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)],
+        animation: .default
+    )
+    private var trips: FetchedResults<Trip>
+
     @State private var navigationPath = NavigationPath()
     @State private var newlyCreatedTrip: Trip?
     @State private var isPulsing = false
-    
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             List {
                 ForEach(trips) { trip in
-                    NavigationLink(value: trip) {
+                    NavigationLink(value: trip.objectID) {
                         TripRowView(trip: trip)
                     }
                 }
                 .onDelete(perform: deleteTrips)
             }
             .navigationTitle("Road Trips")
-            .navigationDestination(for: Trip.self) { trip in
-                TripDetailView(trip: trip, isNewTrip: trip.persistentModelID == newlyCreatedTrip?.persistentModelID)
+            .navigationDestination(for: NSManagedObjectID.self) { objectID in
+                if let trip = viewContext.object(with: objectID) as? Trip {
+                    TripDetailView(trip: trip, isNewTrip: objectID == newlyCreatedTrip?.objectID)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -56,22 +65,19 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private func addTrip() {
-        let newTrip = Trip()
-        modelContext.insert(newTrip)
+        let newTrip = Trip(context: viewContext)
+        viewContext.assign(newTrip, to: persistenceController.privatePersistentStore)
+        viewContext.save(contextInfo: "addTrip")
         newlyCreatedTrip = newTrip
-        navigationPath.append(newTrip)
+        navigationPath.append(newTrip.objectID)
     }
-    
+
     private func deleteTrips(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(trips[index])
+            viewContext.delete(trips[index])
         }
+        viewContext.save(contextInfo: "deleteTrips")
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Trip.self, inMemory: true)
 }
