@@ -1,14 +1,6 @@
-//
-//  CloudSharingView.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/30/26.
-//
-
 import CloudKit
 import CoreData
 import LinkPresentation
-import SwiftData
 import SwiftUI
 
 /// Activity item source that provides a CKShare URL with rich link metadata.
@@ -69,9 +61,8 @@ struct CloudSharingView: UIViewControllerRepresentable {
 }
 
 /// ViewModifier that creates/fetches a CKShare then presents the standard share sheet.
-/// Retries automatically if the trip hasn't synced to iCloud yet.
 struct CloudSharingSheet: ViewModifier {
-    let trip: Trip
+    @ObservedObject var trip: Trip
     let persistenceController: PersistenceController
     @Binding var isPresented: Bool
     @State private var shareURL: URL?
@@ -107,7 +98,7 @@ struct CloudSharingSheet: ViewModifier {
                         VStack(spacing: 12) {
                             ProgressView()
                                 .controlSize(.large)
-                            Text("Syncing to iCloud...")
+                            Text("Preparing share...")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -129,29 +120,23 @@ struct CloudSharingSheet: ViewModifier {
     @MainActor
     private func prepareShare() async {
         isSyncing = true
-        // Retry up to 5 times with 2-second delays to wait for CloudKit sync
-        for attempt in 1...5 {
-            do {
-                let url = try await persistenceController.shareTrip(trip)
-                isSyncing = false
+        do {
+            let share = try await persistenceController.shareTrip(trip)
+            isSyncing = false
+            if let url = share.url {
                 shareURL = url
                 showingSheet = true
-                return
-            } catch is PersistenceController.SharingError where attempt < 5 {
-                print("[CloudSharingSheet] Trip not synced yet, retrying in 2s (attempt \(attempt)/5)")
-                try? await Task.sleep(for: .seconds(2))
-            } catch {
-                isSyncing = false
+            } else {
                 isPresented = false
-                sharingError = error.localizedDescription
+                sharingError = "Failed to create share link. Please try again."
                 showingError = true
-                return
             }
+        } catch {
+            isSyncing = false
+            isPresented = false
+            sharingError = error.localizedDescription
+            showingError = true
         }
-        isSyncing = false
-        isPresented = false
-        sharingError = "Trip hasn't synced to iCloud yet. Please check your internet connection and try again in a moment."
-        showingError = true
     }
 }
 
