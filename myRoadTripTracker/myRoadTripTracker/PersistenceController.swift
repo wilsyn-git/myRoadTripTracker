@@ -1,193 +1,161 @@
 import CloudKit
-import SwiftData
+import CoreData
 import SwiftUI
 
 @MainActor
 @Observable
 final class PersistenceController {
 
-    let modelContainer: ModelContainer
+    static let shared = PersistenceController()
 
     static let cloudKitContainerID = "iCloud.com.tentenbits.myRoadTripTracker"
-    private static let zoneName = "com.apple.coredata.cloudkit.zone"
 
-    private var ckContainer: CKContainer {
+    let persistentContainer: NSPersistentCloudKitContainer
+
+    private var _privatePersistentStore: NSPersistentStore?
+    var privatePersistentStore: NSPersistentStore {
+        _privatePersistentStore!
+    }
+
+    private var _sharedPersistentStore: NSPersistentStore?
+    var sharedPersistentStore: NSPersistentStore {
+        _sharedPersistentStore!
+    }
+
+    var cloudKitContainer: CKContainer {
         CKContainer(identifier: Self.cloudKitContainerID)
     }
 
-    private var privateDB: CKDatabase {
-        ckContainer.privateCloudDatabase
-    }
-
-    private var zoneID: CKRecordZone.ID {
-        CKRecordZone.ID(zoneName: Self.zoneName, ownerName: CKCurrentUserDefaultName)
+    var viewContext: NSManagedObjectContext {
+        persistentContainer.viewContext
     }
 
     init() {
-        let schema = Schema([
-            Trip.self, PlateSighting.self, ObservationEntry.self, TripParticipant.self
-        ])
-        let configuration = ModelConfiguration(
-            schema: schema,
-            cloudKitDatabase: .automatic
-        )
-        do {
-            self.modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
-        }
-    }
+        persistentContainer = NSPersistentCloudKitContainer(name: "myRoadTripTracker")
 
-    // MARK: - Sharing APIs
+        let baseURL = NSPersistentContainer.defaultDirectoryURL()
+        let storeFolderURL = baseURL.appendingPathComponent("CoreDataStores")
+        let privateStoreFolderURL = storeFolderURL.appendingPathComponent("Private")
+        let sharedStoreFolderURL = storeFolderURL.appendingPathComponent("Shared")
 
-    /// Find the CloudKit record for a trip by fetching all records from the zone.
-    private func fetchCKRecord(for trip: Trip) async throws -> CKRecord {
-        let changes = try await privateDB.recordZoneChanges(
-            inZoneWith: zoneID,
-            since: nil
-        )
-
-        let tripRecords = changes.modificationResultsByID.compactMap { (_, result) -> CKRecord? in
-            guard let record = try? result.get().record,
-                  record.recordType == "CD_Trip" else { return nil }
-            return record
+        // Create directories
+        for url in [privateStoreFolderURL, sharedStoreFolderURL] {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
 
-        print("[PersistenceController] Found \(tripRecords.count) CD_Trip records in CloudKit")
-        for record in tripRecords {
-            let name = record["CD_name"] as? String ?? "?"
-            let tripID = record["CD_tripID"] as? String ?? "no tripID"
-            print("[PersistenceController]   - \(name) (CD_tripID=\(tripID))")
+        // Configure the private store
+        guard let privateStoreDescription = persistentContainer.persistentStoreDescriptions.first else {
+            fatalError("Failed to retrieve a persistent store description.")
         }
+        privateStoreDescription.url = privateStoreFolderURL.appendingPathComponent("private.sqlite")
+        privateStoreDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        privateStoreDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
-        let targetID = trip.tripID.uuidString
-        if let match = tripRecords.first(where: { ($0["CD_tripID"] as? String) == targetID }) {
-            print("[PersistenceController] Matched by tripID")
-            return match
+        let privateCloudKitOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: Self.cloudKitContainerID)
+        privateCloudKitOptions.databaseScope = .private
+        privateStoreDescription.cloudKitContainerOptions = privateCloudKitOptions
+
+        // Configure the shared store (copy of private, different URL and scope)
+        guard let sharedStoreDescription = privateStoreDescription.copy() as? NSPersistentStoreDescription else {
+            fatalError("Failed to copy the private store description.")
         }
+        sharedStoreDescription.url = sharedStoreFolderURL.appendingPathComponent("shared.sqlite")
 
-        throw SharingError.tripNotFound
-    }
+        let sharedCloudKitOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: Self.cloudKitContainerID)
+        sharedCloudKitOptions.databaseScope = .shared
+        sharedStoreDescription.cloudKitContainerOptions = sharedCloudKitOptions
 
-    /// Create a CKShare for a trip and return the share URL.
-    func shareTrip(_ trip: Trip) async throws -> URL {
-        let record = try await fetchCKRecord(for: trip)
+        persistentContainer.persistentStoreDescriptions.append(sharedStoreDescription)
 
-        // Check if a share already exists for this record
-        if let existingShareRef = record.share {
-            do {
-                let existingRecord = try await privateDB.record(for: existingShareRef.recordID)
-                if let existingShare = existingRecord as? CKShare {
-                    if existingShare.publicPermission != .readWrite {
-                        existingShare.publicPermission = .readWrite
-                        let (savedResults, _) = try await privateDB.modifyRecords(
-                            saving: [existingShare], deleting: []
-                        )
-                        print("[PersistenceController] Updated existing share permission")
-                    }
-                    if let url = existingShare.url {
-                        return url
-                    }
-                }
-            } catch {
-                print("[PersistenceController] Error fetching existing share, creating new one: \(error)")
+        // Load stores
+        persistentContainer.loadPersistentStores { [weak self] loadedStoreDescription, error in
+            guard let self else { return }
+            if let error {
+                fatalError("Failed to load persistent stores: \(error)")
+            }
+            guard let scope = loadedStoreDescription.cloudKitContainerOptions?.databaseScope else { return }
+            let store = persistentContainer.persistentStoreCoordinator.persistentStore(for: loadedStoreDescription.url!)
+            switch scope {
+            case .private:
+                self._privatePersistentStore = store
+            case .shared:
+                self._sharedPersistentStore = store
+            default:
+                break
             }
         }
 
-        // Create a new share
-        let share = CKShare(rootRecord: record)
+        // Configure view context
+        persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
+        persistentContainer.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        do {
+            try persistentContainer.viewContext.setQueryGenerationFrom(.current)
+        } catch {
+            fatalError("Failed to pin viewContext to current generation: \(error)")
+        }
+
+        // Listen for remote changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(storeRemoteChange),
+            name: .NSPersistentStoreRemoteChange,
+            object: persistentContainer.persistentStoreCoordinator
+        )
+    }
+
+    @objc
+    nonisolated private func storeRemoteChange(_ notification: Notification) {
+        // The viewContext auto-merges changes. This observer is here so we can
+        // add logging or additional processing in the future if needed.
+    }
+
+    // MARK: - Sharing
+
+    /// Share a trip. Returns the CKShare for presentation.
+    func shareTrip(_ trip: Trip) async throws -> CKShare {
+        // Check if already shared
+        if let existingShare = existingShare(for: trip) {
+            return existingShare
+        }
+        let (_, share, _) = try await persistentContainer.share([trip], to: nil)
         share[CKShare.SystemFieldKey.title] = trip.name
         share.publicPermission = .readWrite
-
-        // Save both the record and the share together
-        let (savedResults, _) = try await privateDB.modifyRecords(
-            saving: [record, share], deleting: []
-        )
-
-        // Get the saved share to retrieve the URL
-        for (recordID, result) in savedResults {
-            if let savedRecord = try? result.get(),
-               let savedShare = savedRecord as? CKShare,
-               let url = savedShare.url {
-                print("[PersistenceController] Created share URL: \(url)")
-                return url
+        persistentContainer.persistUpdatedShare(share, in: privatePersistentStore) { share, error in
+            if let error {
+                print("[PersistenceController] Failed to persist updated share: \(error)")
             }
         }
-
-        guard let url = share.url else {
-            throw SharingError.shareURLMissing
-        }
-        return url
+        return share
     }
 
-    /// Check if the current user is the owner of a trip.
+    /// Get the existing CKShare for a trip, if any.
+    func existingShare(for trip: Trip) -> CKShare? {
+        if let shareSet = try? persistentContainer.fetchShares(matching: [trip.objectID]),
+           let (_, share) = shareSet.first {
+            return share
+        }
+        return nil
+    }
+
+    /// Accept a share invitation and import it into the shared store.
+    func acceptShare(metadata: CKShare.Metadata) {
+        persistentContainer.acceptShareInvitations(
+            from: [metadata],
+            into: sharedPersistentStore
+        ) { _, error in
+            if let error {
+                print("[PersistenceController] Failed to accept share: \(error)")
+            }
+        }
+    }
+
+    /// Check if the current user owns this trip (i.e., it lives in the private store).
     func isOwner(of trip: Trip) -> Bool {
-        return true
+        privatePersistentStore.contains(managedObject: trip)
     }
 
-    /// Accept a share and import the shared trip into the local SwiftData store.
-    func acceptShareAndImport(metadata: CKShare.Metadata) async {
-        do {
-            // Accept the share if we're a pending participant
-            if metadata.participantRole != .owner && metadata.participantStatus == .pending {
-                try await ckContainer.accept(metadata)
-                print("[PersistenceController] Share accepted")
-            }
-
-            // Fetch the shared trip from the shared database
-            guard let rootRecordID = metadata.hierarchicalRootRecordID else {
-                print("[PersistenceController] No root record ID in share metadata")
-                return
-            }
-
-            let sharedDB = ckContainer.sharedCloudDatabase
-            let record = try await sharedDB.record(for: rootRecordID)
-            print("[PersistenceController] Fetched shared record: \(record.recordType), name=\(record["CD_name"] as? String ?? "?")")
-
-            // Check if we already have this trip locally (by tripID)
-            let tripIDString = record["CD_tripID"] as? String ?? ""
-            let context = modelContainer.mainContext
-
-            if let existingTripID = UUID(uuidString: tripIDString) {
-                let descriptor = FetchDescriptor<Trip>(
-                    predicate: #Predicate { $0.tripID == existingTripID }
-                )
-                let existing = try context.fetch(descriptor)
-                if !existing.isEmpty {
-                    print("[PersistenceController] Trip already exists locally, skipping import")
-                    return
-                }
-            }
-
-            // Create a local Trip from the CloudKit record
-            let tripName = record["CD_name"] as? String ?? "Shared Trip"
-            let tripID = UUID(uuidString: tripIDString) ?? UUID()
-            let createdDate = record["CD_createdDate"] as? Date ?? Date.now
-            let isClosed = record["CD_isClosed"] as? Int64 == 1
-
-            let trip = Trip(name: tripName, createdDate: createdDate, tripID: tripID)
-            trip.isClosed = isClosed
-            context.insert(trip)
-            try context.save()
-
-            print("[PersistenceController] Imported shared trip: \(tripName)")
-
-        } catch {
-            print("[PersistenceController] Failed to accept/import share: \(error)")
-        }
-    }
-
-    enum SharingError: LocalizedError {
-        case tripNotFound
-        case shareURLMissing
-
-        var errorDescription: String? {
-            switch self {
-            case .tripNotFound:
-                return "Trip not yet synced to iCloud. Please wait a moment and try again."
-            case .shareURLMissing:
-                return "Failed to create share link. Please try again."
-            }
-        }
+    /// Check if the user can edit a record.
+    func canEdit(_ object: NSManagedObject) -> Bool {
+        persistentContainer.canUpdateRecord(forManagedObjectWith: object.objectID)
     }
 }
