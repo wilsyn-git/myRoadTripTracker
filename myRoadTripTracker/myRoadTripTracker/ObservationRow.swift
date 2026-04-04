@@ -1,15 +1,7 @@
-//
-//  ObservationRow.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
-import SwiftData
 
 struct ObservationEntryRow: View {
-    let entry: ObservationEntry
+    @ObservedObject var entry: ObservationEntry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {

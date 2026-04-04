@@ -1,17 +1,10 @@
-//
-//  ObservationsSection.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ObservationsSection: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     let currentUserName: String
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @State private var showingAddCategory = false
     @State private var newCategoryName = ""
 
@@ -67,7 +60,8 @@ struct ObservationsSection: View {
     }
 
     private var allCategories: [String] {
-        let entryCategories = Set(trip.observationEntries.map { $0.category })
+        let entries = trip.observationEntriesArray
+        let entryCategories = Set(entries.map { $0.category })
         var categories = predefinedCategories
         let custom = entryCategories.filter { !predefinedCategories.contains($0) }.sorted()
         categories.append(contentsOf: custom)
@@ -75,16 +69,19 @@ struct ObservationsSection: View {
     }
 
     private func entriesForCategory(_ category: String) -> [ObservationEntry] {
-        trip.observationEntries
+        trip.observationEntriesArray
             .filter { $0.category == category }
-            .sorted { $0.createdDate < $1.createdDate }
     }
 
     private func addEntry(category: String, text: String) {
-        let entry = ObservationEntry(category: category, authorName: currentUserName, text: text)
+        let entry = ObservationEntry(
+            context: viewContext,
+            category: category,
+            authorName: currentUserName,
+            text: text
+        )
         entry.trip = trip
-        trip.observationEntries.append(entry)
-        modelContext.insert(entry)
+        viewContext.save(contextInfo: "addObservation")
     }
 }
 
