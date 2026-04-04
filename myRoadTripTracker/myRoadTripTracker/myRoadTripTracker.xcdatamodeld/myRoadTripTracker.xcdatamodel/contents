@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23231" systemVersion="24D81" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="YES" usedWithSwiftData="NO">
     <entity name="Trip" representedClassName="Trip" syncable="YES">
-        <attribute name="tripID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="tripID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" attributeType="String" defaultValueString="New Trip"/>
-        <attribute name="createdDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="isClosed" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <relationship name="plateSightings" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PlateSighting" inverseName="trip" inverseEntity="PlateSighting"/>
         <relationship name="observationEntries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ObservationEntry" inverseName="trip" inverseEntity="ObservationEntry"/>
@@ -14,20 +14,20 @@
         <attribute name="locationName" attributeType="String" defaultValueString=""/>
         <attribute name="latitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="longitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <attribute name="seenDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="seenDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="trip" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Trip" inverseName="plateSightings" inverseEntity="Trip"/>
     </entity>
     <entity name="ObservationEntry" representedClassName="ObservationEntry" syncable="YES">
         <attribute name="category" attributeType="String" defaultValueString=""/>
         <attribute name="authorName" attributeType="String" defaultValueString=""/>
         <attribute name="text" attributeType="String" defaultValueString=""/>
-        <attribute name="createdDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="trip" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Trip" inverseName="observationEntries" inverseEntity="Trip"/>
     </entity>
     <entity name="TripParticipant" representedClassName="TripParticipant" syncable="YES">
         <attribute name="displayName" attributeType="String" defaultValueString=""/>
         <attribute name="cloudKitUserID" attributeType="String" defaultValueString=""/>
-        <attribute name="joinedDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="joinedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="trip" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Trip" inverseName="participants" inverseEntity="Trip"/>
     </entity>
 </model>
