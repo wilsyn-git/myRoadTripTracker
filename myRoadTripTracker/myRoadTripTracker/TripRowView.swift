@@ -35,7 +35,7 @@ struct TripRowView: View {
                 }
             }
             HStack(spacing: 0) {
-                Text(trip.createdDate, style: .date)
+                Text(trip.createdDate ?? Date(), style: .date)
                 Text("  —  \(seenCount)/\(totalCount): \(percentage)%")
             }
             .font(.caption)

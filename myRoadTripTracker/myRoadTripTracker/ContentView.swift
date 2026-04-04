@@ -68,7 +68,9 @@ struct ContentView: View {
 
     private func addTrip() {
         let newTrip = Trip(context: viewContext)
-        viewContext.assign(newTrip, to: persistenceController.privatePersistentStore)
+        if let store = persistenceController.privatePersistentStore {
+            viewContext.assign(newTrip, to: store)
+        }
         viewContext.save(contextInfo: "addTrip")
         newlyCreatedTrip = newTrip
         navigationPath.append(newTrip.objectID)

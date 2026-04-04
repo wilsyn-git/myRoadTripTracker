@@ -9,7 +9,7 @@ extension ObservationEntry {
     @NSManaged public var category: String
     @NSManaged public var authorName: String
     @NSManaged public var text: String
-    @NSManaged public var createdDate: Date
+    @NSManaged public var createdDate: Date?
     @NSManaged public var trip: Trip?
 }
 

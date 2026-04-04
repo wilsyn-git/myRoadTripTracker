@@ -23,7 +23,7 @@ struct ParticipantsView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            Text("Joined \(participant.joinedDate, style: .date)")
+                            Text("Joined \(participant.joinedDate ?? Date(), style: .date)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

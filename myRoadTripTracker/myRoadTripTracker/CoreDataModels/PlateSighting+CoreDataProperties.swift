@@ -11,7 +11,7 @@ extension PlateSighting {
     @NSManaged public var locationName: String
     @NSManaged public var latitude: Double
     @NSManaged public var longitude: Double
-    @NSManaged public var seenDate: Date
+    @NSManaged public var seenDate: Date?
     @NSManaged public var trip: Trip?
 }
 

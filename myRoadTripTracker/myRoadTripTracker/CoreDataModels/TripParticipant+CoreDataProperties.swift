@@ -8,7 +8,7 @@ extension TripParticipant {
 
     @NSManaged public var displayName: String
     @NSManaged public var cloudKitUserID: String
-    @NSManaged public var joinedDate: Date
+    @NSManaged public var joinedDate: Date?
     @NSManaged public var trip: Trip?
 }
 

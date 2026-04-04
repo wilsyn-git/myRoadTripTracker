@@ -10,7 +10,7 @@ struct ObservationEntryRow: View {
                     .font(.caption)
                     .fontWeight(.semibold)
                 Spacer()
-                Text(entry.createdDate, style: .time)
+                Text(entry.createdDate ?? Date(), style: .time)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

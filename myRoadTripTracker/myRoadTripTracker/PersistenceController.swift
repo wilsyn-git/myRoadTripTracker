@@ -13,13 +13,15 @@ final class PersistenceController {
     let persistentContainer: NSPersistentCloudKitContainer
 
     private var _privatePersistentStore: NSPersistentStore?
-    var privatePersistentStore: NSPersistentStore {
-        _privatePersistentStore!
+    var privatePersistentStore: NSPersistentStore? {
+        _privatePersistentStore
     }
 
     private var _sharedPersistentStore: NSPersistentStore?
-    var sharedPersistentStore: NSPersistentStore {
-        _sharedPersistentStore!
+    private var remoteChangeObserver: Any?
+    private var lastHistoryToken: NSPersistentHistoryToken?
+    var sharedPersistentStore: NSPersistentStore? {
+        _sharedPersistentStore
     }
 
     var cloudKitContainer: CKContainer {
@@ -80,7 +82,7 @@ final class PersistenceController {
         sharedCloudKitOptions.databaseScope = .shared
         sharedStoreDescription.cloudKitContainerOptions = sharedCloudKitOptions
 
-        persistentContainer.persistentStoreDescriptions.append(sharedStoreDescription)
+        persistentContainer.persistentStoreDescriptions = [privateStoreDescription, sharedStoreDescription]
 
         // Load stores — use local vars to avoid capturing self during init
         var privateStore: NSPersistentStore?
@@ -116,35 +118,68 @@ final class PersistenceController {
             fatalError("Failed to pin viewContext to current generation: \(error)")
         }
 
-        // Listen for remote changes
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(storeRemoteChange),
-            name: .NSPersistentStoreRemoteChange,
-            object: persistentContainer.persistentStoreCoordinator
-        )
+        // Listen for remote changes and merge them into the view context
+        lastHistoryToken = Self.loadHistoryToken()
+        remoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: persistentContainer.persistentStoreCoordinator,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.processRemoteChanges()
+            }
+        }
     }
 
-    @objc
-    nonisolated private func storeRemoteChange(_ notification: Notification) {
-        // The viewContext auto-merges changes. This observer is here so we can
-        // add logging or additional processing in the future if needed.
+    /// Fetch persistent history since the last token and merge changes into the view context.
+    private func processRemoteChanges() {
+        let request = NSPersistentHistoryChangeRequest.fetchHistory(after: lastHistoryToken)
+        guard let result = try? viewContext.execute(request) as? NSPersistentHistoryResult,
+              let transactions = result.result as? [NSPersistentHistoryTransaction],
+              !transactions.isEmpty else {
+            return
+        }
+        for transaction in transactions {
+            viewContext.mergeChanges(fromContextDidSave: transaction.objectIDNotification())
+        }
+        lastHistoryToken = transactions.last?.token
+        Self.saveHistoryToken(lastHistoryToken)
+    }
+
+    private static func loadHistoryToken() -> NSPersistentHistoryToken? {
+        let url = NSPersistentContainer.defaultDirectoryURL().appendingPathComponent("historyToken.data")
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSPersistentHistoryToken.self, from: data)
+    }
+
+    private static func saveHistoryToken(_ token: NSPersistentHistoryToken?) {
+        let url = NSPersistentContainer.defaultDirectoryURL().appendingPathComponent("historyToken.data")
+        guard let token,
+              let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else { return }
+        try? data.write(to: url)
     }
 
     // MARK: - Sharing
 
     /// Share a trip. Returns the CKShare for presentation.
     func shareTrip(_ trip: Trip) async throws -> CKShare {
-        // Check if already shared
         if let existingShare = existingShare(for: trip) {
             return existingShare
+        }
+        guard let store = privatePersistentStore else {
+            throw NSError(domain: "PersistenceController", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."])
         }
         let (_, share, _) = try await persistentContainer.share([trip], to: nil)
         share[CKShare.SystemFieldKey.title] = trip.name
         share.publicPermission = .readWrite
-        persistentContainer.persistUpdatedShare(share, in: privatePersistentStore) { share, error in
-            if let error {
-                print("[PersistenceController] Failed to persist updated share: \(error)")
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            persistentContainer.persistUpdatedShare(share, in: store) { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
         return share
@@ -161,9 +196,13 @@ final class PersistenceController {
 
     /// Accept a share invitation and import it into the shared store.
     func acceptShare(metadata: CKShare.Metadata) {
+        guard let store = sharedPersistentStore else {
+            print("[PersistenceController] Cannot accept share: shared store not loaded.")
+            return
+        }
         persistentContainer.acceptShareInvitations(
             from: [metadata],
-            into: sharedPersistentStore
+            into: store
         ) { _, error in
             if let error {
                 print("[PersistenceController] Failed to accept share: \(error)")
@@ -173,7 +212,8 @@ final class PersistenceController {
 
     /// Check if the current user owns this trip (i.e., it lives in the private store).
     func isOwner(of trip: Trip) -> Bool {
-        privatePersistentStore.contains(managedObject: trip)
+        guard let store = privatePersistentStore else { return true }
+        return store.contains(managedObject: trip)
     }
 
     /// Check if the user can edit a record.

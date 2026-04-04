@@ -6,9 +6,9 @@ extension Trip {
         return NSFetchRequest<Trip>(entityName: "Trip")
     }
 
-    @NSManaged public var tripID: UUID
+    @NSManaged public var tripID: UUID?
     @NSManaged public var name: String
-    @NSManaged public var createdDate: Date
+    @NSManaged public var createdDate: Date?
     @NSManaged public var isClosed: Bool
     @NSManaged public var plateSightings: NSSet?
     @NSManaged public var observationEntries: NSSet?
@@ -20,17 +20,17 @@ extension Trip {
 extension Trip: Identifiable {
     var plateSightingsArray: [PlateSighting] {
         let set = plateSightings as? Set<PlateSighting> ?? []
-        return set.sorted { $0.seenDate < $1.seenDate }
+        return set.sorted { ($0.seenDate ?? .distantPast) < ($1.seenDate ?? .distantPast) }
     }
 
     var observationEntriesArray: [ObservationEntry] {
         let set = observationEntries as? Set<ObservationEntry> ?? []
-        return set.sorted { $0.createdDate < $1.createdDate }
+        return set.sorted { ($0.createdDate ?? .distantPast) < ($1.createdDate ?? .distantPast) }
     }
 
     var participantsArray: [TripParticipant] {
         let set = participants as? Set<TripParticipant> ?? []
-        return set.sorted { $0.joinedDate < $1.joinedDate }
+        return set.sorted { ($0.joinedDate ?? .distantPast) < ($1.joinedDate ?? .distantPast) }
     }
 }
 
