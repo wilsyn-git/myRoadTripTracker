@@ -1,21 +1,15 @@
-//
-//  TripRowView.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
 
 struct TripRowView: View {
-    let trip: Trip
+    @ObservedObject var trip: Trip
 
-    private var seenCount: Int { trip.plateSightings.count }
+    private var sightings: [PlateSighting] { trip.plateSightingsArray }
+    private var seenCount: Int { sightings.count }
     private var totalCount: Int { Location.allLocations.count }
     private var percentage: Int {
         totalCount > 0 ? (seenCount * 100) / totalCount : 0
     }
-    private var isShared: Bool { trip.participants.count > 1 }
+    private var isShared: Bool { trip.participantsArray.count > 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -33,11 +27,11 @@ struct TripRowView: View {
                         Image(systemName: "person.2.fill")
                             .font(.caption2)
                             .accessibilityHidden(true)
-                        Text("\(trip.participants.count)")
+                        Text("\(trip.participantsArray.count)")
                             .font(.caption2)
                     }
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("^[\(trip.participants.count) participant](inflect: true)")
+                    .accessibilityLabel("^[\(trip.participantsArray.count) participant](inflect: true)")
                 }
             }
             HStack(spacing: 0) {

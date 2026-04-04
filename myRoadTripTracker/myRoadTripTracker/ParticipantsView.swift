@@ -1,24 +1,17 @@
-//
-//  ParticipantsView.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/30/26.
-//
-
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ParticipantsView: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     let isOwner: Bool
     let currentUserID: String
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(trip.participants.sorted(by: { $0.joinedDate < $1.joinedDate })) { participant in
+                ForEach(trip.participantsArray) { participant in
                     HStack {
                         VStack(alignment: .leading) {
                             HStack {
@@ -58,7 +51,7 @@ struct ParticipantsView: View {
                 }
             }
             .overlay {
-                if trip.participants.isEmpty {
+                if trip.participantsArray.isEmpty {
                     ContentUnavailableView {
                         Label("No Participants", systemImage: "person.2")
                     } description: {
@@ -70,10 +63,8 @@ struct ParticipantsView: View {
     }
 
     private func removeParticipant(_ participant: TripParticipant) {
-        if let index = trip.participants.firstIndex(of: participant) {
-            trip.participants.remove(at: index)
-        }
-        modelContext.delete(participant)
+        viewContext.delete(participant)
+        viewContext.save(contextInfo: "removeParticipant")
     }
 
     private func leaveTrip(_ participant: TripParticipant) {

@@ -1,10 +1,3 @@
-//
-//  PlateSightingsMapView.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
 import MapKit
 
@@ -12,7 +5,7 @@ struct PlateSightingsMapView: View {
     let sightings: [PlateSighting]
     @Environment(\.dismiss) private var dismiss
     @State private var position: MapCameraPosition = .automatic
-    
+
     var body: some View {
         NavigationStack {
             Map(position: $position) {

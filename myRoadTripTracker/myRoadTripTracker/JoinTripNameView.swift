@@ -1,8 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct JoinTripNameView: View {
-    let trip: Trip
+    @ObservedObject var trip: Trip
     let onComplete: (String) -> Void
     @AppStorage("defaultDisplayName") private var defaultDisplayName = ""
     @State private var displayName = ""
