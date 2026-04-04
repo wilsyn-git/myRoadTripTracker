@@ -1,22 +1,19 @@
-//
-//  PlateSightingsSection.swift
-//  myRoadTripTracker
-//
-//  Created by Sam Grover on 3/5/26.
-//
-
 import SwiftUI
-import SwiftData
+import CoreData
 import CoreLocation
 
 struct PlateSightingsSection: View {
-    @Bindable var trip: Trip
+    @ObservedObject var trip: Trip
     var locationManager: LocationManager
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @State private var locationToRemove: Location?
 
+    private var sightings: [PlateSighting] {
+        trip.plateSightingsArray
+    }
+
     private var seenCount: Int {
-        trip.plateSightings.count
+        sightings.count
     }
 
     private var totalCount: Int {
@@ -64,11 +61,11 @@ struct PlateSightingsSection: View {
             }
         }
     }
-    
+
     private func isSeen(_ location: Location) -> Bool {
-        trip.plateSightings.contains { $0.locationCode == location.code }
+        sightings.contains { $0.locationCode == location.code }
     }
-    
+
     private func markAsSeen(_ location: Location) {
         guard !isSeen(location) else { return }
 
@@ -78,24 +75,21 @@ struct PlateSightingsSection: View {
             let longitude = loc?.coordinate.longitude ?? 0.0
 
             let sighting = PlateSighting(
+                context: viewContext,
                 locationCode: location.code,
                 locationName: location.name,
                 latitude: latitude,
                 longitude: longitude
             )
             sighting.trip = trip
-            trip.plateSightings.append(sighting)
-            modelContext.insert(sighting)
+            viewContext.save(contextInfo: "markAsSeen")
         }
     }
-    
+
     private func unmarkAsSeen(_ location: Location) {
-        guard let sighting = trip.plateSightings.first(where: { $0.locationCode == location.code }) else { return }
-        
-        if let index = trip.plateSightings.firstIndex(of: sighting) {
-            trip.plateSightings.remove(at: index)
-        }
-        modelContext.delete(sighting)
+        guard let sighting = sightings.first(where: { $0.locationCode == location.code }) else { return }
+        viewContext.delete(sighting)
+        viewContext.save(contextInfo: "unmarkAsSeen")
     }
 }
 
