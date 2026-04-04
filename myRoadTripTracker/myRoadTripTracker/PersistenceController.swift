@@ -82,23 +82,30 @@ final class PersistenceController {
 
         persistentContainer.persistentStoreDescriptions.append(sharedStoreDescription)
 
-        // Load stores
-        persistentContainer.loadPersistentStores { [weak self] loadedStoreDescription, error in
-            guard let self else { return }
+        // Load stores — use local vars to avoid capturing self during init
+        var privateStore: NSPersistentStore?
+        var sharedStore: NSPersistentStore?
+        let coordinator = persistentContainer.persistentStoreCoordinator
+
+        persistentContainer.loadPersistentStores { loadedStoreDescription, error in
             if let error {
                 fatalError("Failed to load persistent stores: \(error)")
             }
             guard let scope = loadedStoreDescription.cloudKitContainerOptions?.databaseScope else { return }
-            let store = persistentContainer.persistentStoreCoordinator.persistentStore(for: loadedStoreDescription.url!)
+            guard let storeURL = loadedStoreDescription.url,
+                  let store = coordinator.persistentStore(for: storeURL) else { return }
             switch scope {
             case .private:
-                self._privatePersistentStore = store
+                privateStore = store
             case .shared:
-                self._sharedPersistentStore = store
+                sharedStore = store
             default:
                 break
             }
         }
+
+        _privatePersistentStore = privateStore
+        _sharedPersistentStore = sharedStore
 
         // Configure view context
         persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
