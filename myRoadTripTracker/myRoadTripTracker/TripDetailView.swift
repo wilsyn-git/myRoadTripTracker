@@ -21,6 +21,7 @@ struct TripDetailView: View {
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
     @State private var showingParticipants = false
+    @State private var showingMapView = false
     @State private var isOwner = true
 
     var body: some View {
@@ -83,6 +84,16 @@ struct TripDetailView: View {
                     Label("Participants", systemImage: "person.2")
                 }
             }
+            if selectedTab == .plates {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        showingMapView = true
+                    } label: {
+                        Label("View Sightings Map", systemImage: "map")
+                    }
+                    .disabled(trip.plateSightingsArray.isEmpty)
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
                     trip.isClosed.toggle()
@@ -123,6 +134,9 @@ struct TripDetailView: View {
                 currentUserID: cloudKitUserID
             )
         }
+        .sheet(isPresented: $showingMapView) {
+            PlateSightingsMapView(sightings: trip.plateSightingsArray)
+        }
         .sheet(isPresented: $showingNamePrompt) {
             JoinTripNameView(trip: trip) { name in
                 let participant = TripParticipant(
@@ -144,23 +158,10 @@ struct TripDetailView: View {
 struct PlatesTabView: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
-    @State private var showingMapView = false
 
     var body: some View {
         List {
             PlateSightingsSection(trip: trip, locationManager: locationManager)
-
-            Section {
-                Button {
-                    showingMapView = true
-                } label: {
-                    Label("View Sightings Map", systemImage: "map")
-                }
-                .disabled(trip.plateSightingsArray.isEmpty)
-            }
-        }
-        .sheet(isPresented: $showingMapView) {
-            PlateSightingsMapView(sightings: trip.plateSightingsArray)
         }
     }
 }

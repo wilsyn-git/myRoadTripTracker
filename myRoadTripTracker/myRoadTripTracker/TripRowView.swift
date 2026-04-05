@@ -4,8 +4,9 @@ struct TripRowView: View {
     @ObservedObject var trip: Trip
 
     private var sightings: [PlateSighting] { trip.plateSightingsArray }
-    private var seenCount: Int { sightings.count }
-    private var totalCount: Int { Location.allLocations.count }
+    private static let usCodes = Set(Location.usStates.map(\.code))
+    private var seenCount: Int { sightings.filter { Self.usCodes.contains($0.locationCode) }.count }
+    private var totalCount: Int { Location.usStates.count }
     private var percentage: Int {
         totalCount > 0 ? (seenCount * 100) / totalCount : 0
     }

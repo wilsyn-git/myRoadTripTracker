@@ -12,33 +12,14 @@ struct PlateSightingsSection: View {
         trip.plateSightingsArray
     }
 
-    private var seenCount: Int {
-        sightings.count
-    }
-
-    private var totalCount: Int {
-        Location.allLocations.count
+    private func seenCount(in locations: [Location]) -> Int {
+        let codes = Set(locations.map(\.code))
+        return sightings.filter { codes.contains($0.locationCode) }.count
     }
 
     var body: some View {
-        Section {
-            ForEach(Location.allLocations) { location in
-                PlateRow(
-                    location: location,
-                    isSeen: isSeen(location),
-                    onTap: { markAsSeen(location) },
-                    onRemove: { locationToRemove = location }
-                )
-                .disabled(trip.isClosed)
-            }
-        } header: {
-            HStack {
-                Text("License Plates")
-                Spacer()
-                Text("\(seenCount)/\(totalCount)")
-                    .fontWeight(.semibold)
-            }
-        }
+        plateSection(title: "US States & DC", locations: Location.usStates)
+        plateSection(title: "Canada", locations: Location.canadaLocations)
         .alert(
             "Remove Sighting",
             isPresented: Binding(
@@ -58,6 +39,27 @@ struct PlateSightingsSection: View {
         } message: {
             if let location = locationToRemove {
                 Text("Remove the \(location.name) plate sighting? This will delete the location data.")
+            }
+        }
+    }
+
+    private func plateSection(title: String, locations: [Location]) -> some View {
+        Section {
+            ForEach(locations) { location in
+                PlateRow(
+                    location: location,
+                    isSeen: isSeen(location),
+                    onTap: { markAsSeen(location) },
+                    onRemove: { locationToRemove = location }
+                )
+                .disabled(trip.isClosed)
+            }
+        } header: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(seenCount(in: locations))/\(locations.count)")
+                    .fontWeight(.semibold)
             }
         }
     }

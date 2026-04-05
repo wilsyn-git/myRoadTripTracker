@@ -26,6 +26,7 @@ struct Location: Identifiable, Hashable {
 
 extension Location {
     static let allLocations: [Location] = usStates + canadianProvinces + canadianTerritories
+    static let canadaLocations: [Location] = canadianProvinces + canadianTerritories
     
     static let usStates: [Location] = [
         Location(code: "AL", name: "Alabama", type: .usState),
