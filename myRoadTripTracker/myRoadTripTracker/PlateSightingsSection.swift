@@ -10,10 +10,10 @@ enum PlateFilter: String, CaseIterable {
 struct PlateSightingsSection: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
+    var plateFilter: PlateFilter = .all
     @Environment(\.managedObjectContext) private var viewContext
     @State private var locationToRemove: Location?
     @State private var isRecordingLocation = false
-    @State private var plateFilter: PlateFilter = .all
 
     private var sightings: [PlateSighting] {
         trip.plateSightingsArray
@@ -34,16 +34,6 @@ struct PlateSightingsSection: View {
     }
 
     var body: some View {
-        Section {
-            Picker("Filter", selection: $plateFilter) {
-                ForEach(PlateFilter.allCases, id: \.self) { filter in
-                    Text(filter.rawValue).tag(filter)
-                }
-            }
-            .pickerStyle(.segmented)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-        }
         plateSection(title: "US States & DC", locations: Location.usStates)
         plateSection(title: "Canada", locations: Location.canadaLocations)
         .alert(

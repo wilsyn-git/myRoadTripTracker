@@ -24,6 +24,7 @@ struct TripDetailView: View {
     @State private var showingMapView = false
     @State private var isOwner = true
     @State private var isLoading = true
+    @State private var plateFilter: PlateFilter = .all
 
     var body: some View {
         if isLoading {
@@ -92,13 +93,30 @@ struct TripDetailView: View {
 
             switch selectedTab {
             case .plates:
-                PlatesTabView(trip: trip, locationManager: locationManager)
+                PlatesTabView(trip: trip, locationManager: locationManager, plateFilter: plateFilter)
             case .notes:
                 NotesTabView(trip: trip, currentUserName: resolvedDisplayName ?? currentUserName)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if selectedTab == .plates {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        ForEach(PlateFilter.allCases, id: \.self) { filter in
+                            Button {
+                                plateFilter = filter
+                            } label: {
+                                Label(filter.rawValue, systemImage: plateFilter == filter ? "checkmark" : "")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: plateFilter == .all
+                              ? "line.3.horizontal.decrease.circle"
+                              : "line.3.horizontal.decrease.circle.fill")
+                    }
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
                     showingSharingSheet = true
@@ -169,10 +187,11 @@ struct TripDetailView: View {
 struct PlatesTabView: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
+    var plateFilter: PlateFilter = .all
 
     var body: some View {
         List {
-            PlateSightingsSection(trip: trip, locationManager: locationManager)
+            PlateSightingsSection(trip: trip, locationManager: locationManager, plateFilter: plateFilter)
         }
     }
 }
