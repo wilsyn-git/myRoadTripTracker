@@ -1,4 +1,7 @@
 import CoreData
+import os.log
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "myRoadTripTracker", category: "CoreData")
 
 // MARK: - Contextual Save
 
@@ -9,7 +12,7 @@ extension NSManagedObjectContext {
         do {
             try save()
         } catch {
-            print("[CoreData] Failed to save (\(contextInfo)): \(error)")
+            logger.error("Failed to save (\(contextInfo)): \(error.localizedDescription)")
         }
     }
 }

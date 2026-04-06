@@ -28,20 +28,31 @@ class LocationManager: NSObject {
         manager.requestWhenInUseAuthorization()
     }
 
-    /// Request a single location fix. Returns nil if permission denied or location unavailable.
-    func requestCurrentLocation() async -> CLLocation? {
+    /// Request a location fix, retrying over the given duration before giving up.
+    func requestCurrentLocation(timeout: TimeInterval = 30) async -> CLLocation? {
         if authorizationStatus != .authorizedWhenInUse && authorizationStatus != .authorizedAlways {
             requestPermission()
-            // Wait briefly for authorization
             try? await Task.sleep(for: .milliseconds(500))
             guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
                 return nil
             }
         }
-        return await withCheckedContinuation { continuation in
-            locationContinuation = continuation
-            manager.requestLocation()
+
+        let deadline = Date().addingTimeInterval(timeout)
+        var delay: Duration = .seconds(2)
+
+        while Date() < deadline {
+            let location = await withCheckedContinuation { continuation in
+                locationContinuation = continuation
+                manager.requestLocation()
+            }
+            if let location {
+                return location
+            }
+            try? await Task.sleep(for: delay)
+            delay = min(delay * 2, .seconds(8))
         }
+        return nil
     }
 }
 

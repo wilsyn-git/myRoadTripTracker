@@ -63,6 +63,21 @@ struct ContentView: View {
             .onChange(of: trips.count) { _, newCount in
                 isPulsing = newCount == 0
             }
+            .alert(
+                "Share Error",
+                isPresented: Binding(
+                    get: { persistenceController.shareAcceptanceError != nil },
+                    set: { if !$0 { persistenceController.shareAcceptanceError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    persistenceController.shareAcceptanceError = nil
+                }
+            } message: {
+                if let error = persistenceController.shareAcceptanceError {
+                    Text(error)
+                }
+            }
         }
     }
 

@@ -11,7 +11,13 @@ struct myRoadTripTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if hasCompletedOnboarding {
+                if let error = persistenceController.setupError {
+                    ContentUnavailableView {
+                        Label("Something Went Wrong", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(error)
+                    }
+                } else if hasCompletedOnboarding {
                     ContentView()
                 } else {
                     OnboardingView()

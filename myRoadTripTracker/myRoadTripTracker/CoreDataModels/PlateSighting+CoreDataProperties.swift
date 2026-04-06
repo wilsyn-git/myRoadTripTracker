@@ -19,4 +19,12 @@ extension PlateSighting: Identifiable {
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+
+    var hasValidCoordinate: Bool {
+        latitude != 0.0 || longitude != 0.0
+    }
+
+    var flagImageName: String {
+        locationName.lowercased().replacing(" ", with: "_")
+    }
 }

@@ -1,6 +1,9 @@
 import CloudKit
 import CoreData
+import os.log
 import SwiftUI
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "myRoadTripTracker", category: "Persistence")
 
 @MainActor
 @Observable
@@ -20,6 +23,9 @@ final class PersistenceController {
     private var _sharedPersistentStore: NSPersistentStore?
     private var remoteChangeObserver: Any?
     private var lastHistoryToken: NSPersistentHistoryToken?
+    var shareAcceptanceError: String?
+    /// Non-nil if the database failed to initialize. Observed by the UI to show an error screen.
+    var setupError: String?
     var sharedPersistentStore: NSPersistentStore? {
         _sharedPersistentStore
     }
@@ -62,7 +68,9 @@ final class PersistenceController {
 
         // Configure the private store
         guard let privateStoreDescription = persistentContainer.persistentStoreDescriptions.first else {
-            fatalError("Failed to retrieve a persistent store description.")
+            logger.error("Failed to retrieve a persistent store description.")
+            setupError = "Unable to initialize the database. Please reinstall the app."
+            return
         }
         privateStoreDescription.url = privateStoreFolderURL.appendingPathComponent("private.sqlite")
         privateStoreDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
@@ -74,7 +82,9 @@ final class PersistenceController {
 
         // Configure the shared store (copy of private, different URL and scope)
         guard let sharedStoreDescription = privateStoreDescription.copy() as? NSPersistentStoreDescription else {
-            fatalError("Failed to copy the private store description.")
+            logger.error("Failed to copy the private store description.")
+            setupError = "Unable to initialize the database. Please reinstall the app."
+            return
         }
         sharedStoreDescription.url = sharedStoreFolderURL.appendingPathComponent("shared.sqlite")
 
@@ -87,11 +97,14 @@ final class PersistenceController {
         // Load stores — use local vars to avoid capturing self during init
         var privateStore: NSPersistentStore?
         var sharedStore: NSPersistentStore?
+        var loadError: Error?
         let coordinator = persistentContainer.persistentStoreCoordinator
 
         persistentContainer.loadPersistentStores { loadedStoreDescription, error in
             if let error {
-                fatalError("Failed to load persistent stores: \(error)")
+                logger.error("Failed to load persistent store: \(error.localizedDescription)")
+                loadError = error
+                return
             }
             guard let scope = loadedStoreDescription.cloudKitContainerOptions?.databaseScope else { return }
             guard let storeURL = loadedStoreDescription.url,
@@ -106,6 +119,10 @@ final class PersistenceController {
             }
         }
 
+        if let loadError {
+            setupError = "Unable to load your data: \(loadError.localizedDescription)"
+        }
+
         _privatePersistentStore = privateStore
         _sharedPersistentStore = sharedStore
 
@@ -115,7 +132,7 @@ final class PersistenceController {
         do {
             try persistentContainer.viewContext.setQueryGenerationFrom(.current)
         } catch {
-            fatalError("Failed to pin viewContext to current generation: \(error)")
+            logger.error("Failed to pin viewContext to current generation: \(error.localizedDescription)")
         }
 
         // Listen for remote changes and merge them into the view context
@@ -197,7 +214,7 @@ final class PersistenceController {
     /// Accept a share invitation and import it into the shared store.
     func acceptShare(metadata: CKShare.Metadata) {
         guard let store = sharedPersistentStore else {
-            print("[PersistenceController] Cannot accept share: shared store not loaded.")
+            shareAcceptanceError = "Unable to accept share: storage is not ready. Please restart the app and try again."
             return
         }
         persistentContainer.acceptShareInvitations(
@@ -205,7 +222,10 @@ final class PersistenceController {
             into: store
         ) { _, error in
             if let error {
-                print("[PersistenceController] Failed to accept share: \(error)")
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    self?.shareAcceptanceError = "Failed to join shared trip: \(message)"
+                }
             }
         }
     }

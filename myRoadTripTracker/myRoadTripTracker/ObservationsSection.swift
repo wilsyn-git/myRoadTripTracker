@@ -7,6 +7,7 @@ struct ObservationsSection: View {
     @Environment(\.managedObjectContext) private var viewContext
     @State private var showingAddCategory = false
     @State private var newCategoryName = ""
+    @State private var addedCategories: [String] = []
 
     private let predefinedCategories = [
         "Weirdest thing we've seen",
@@ -53,6 +54,10 @@ struct ObservationsSection: View {
                     newCategoryName = ""
                 }
                 Button("Add") {
+                    let trimmed = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty, !allCategories.contains(trimmed) {
+                        addedCategories.append(trimmed)
+                    }
                     newCategoryName = ""
                 }
             }
@@ -63,7 +68,10 @@ struct ObservationsSection: View {
         let entries = trip.observationEntriesArray
         let entryCategories = Set(entries.map { $0.category })
         var categories = predefinedCategories
-        let custom = entryCategories.filter { !predefinedCategories.contains($0) }.sorted()
+        let custom = entryCategories
+            .union(addedCategories)
+            .filter { !predefinedCategories.contains($0) }
+            .sorted()
         categories.append(contentsOf: custom)
         return categories
     }

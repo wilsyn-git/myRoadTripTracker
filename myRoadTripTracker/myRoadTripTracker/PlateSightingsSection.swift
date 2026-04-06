@@ -2,11 +2,18 @@ import SwiftUI
 import CoreData
 import CoreLocation
 
+enum PlateFilter: String, CaseIterable {
+    case all = "All"
+    case notSeen = "Not Seen"
+}
+
 struct PlateSightingsSection: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
     @Environment(\.managedObjectContext) private var viewContext
     @State private var locationToRemove: Location?
+    @State private var isRecordingLocation = false
+    @State private var plateFilter: PlateFilter = .all
 
     private var sightings: [PlateSighting] {
         trip.plateSightingsArray
@@ -17,7 +24,26 @@ struct PlateSightingsSection: View {
         return sightings.filter { codes.contains($0.locationCode) }.count
     }
 
+    private func filtered(_ locations: [Location]) -> [Location] {
+        switch plateFilter {
+        case .all:
+            return locations
+        case .notSeen:
+            return locations.filter { !isSeen($0) }
+        }
+    }
+
     var body: some View {
+        Section {
+            Picker("Filter", selection: $plateFilter) {
+                ForEach(PlateFilter.allCases, id: \.self) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+        }
         plateSection(title: "US States & DC", locations: Location.usStates)
         plateSection(title: "Canada", locations: Location.canadaLocations)
         .alert(
@@ -44,8 +70,9 @@ struct PlateSightingsSection: View {
     }
 
     private func plateSection(title: String, locations: [Location]) -> some View {
-        Section {
-            ForEach(locations) { location in
+        let visible = filtered(locations)
+        return Section {
+            ForEach(visible) { location in
                 PlateRow(
                     location: location,
                     isSeen: isSeen(location),
@@ -69,8 +96,9 @@ struct PlateSightingsSection: View {
     }
 
     private func markAsSeen(_ location: Location) {
-        guard !isSeen(location) else { return }
+        guard !isSeen(location), !isRecordingLocation else { return }
 
+        isRecordingLocation = true
         Task {
             let loc = await locationManager.requestCurrentLocation()
             let latitude = loc?.coordinate.latitude ?? 0.0
@@ -85,6 +113,7 @@ struct PlateSightingsSection: View {
             )
             sighting.trip = trip
             viewContext.save(contextInfo: "markAsSeen")
+            isRecordingLocation = false
         }
     }
 
@@ -131,9 +160,10 @@ struct PlateRow: View {
             .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
         }
         .buttonStyle(.plain)
-        .swipeActions(edge: .trailing) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if isSeen {
-                Button("Remove", role: .destructive, action: onRemove)
+                Button("Remove", action: onRemove)
+                    .tint(.red)
             }
         }
     }

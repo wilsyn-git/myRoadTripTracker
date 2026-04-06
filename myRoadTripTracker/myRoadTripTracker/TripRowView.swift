@@ -43,5 +43,7 @@ struct TripRowView: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(trip.name), \(seenCount) of \(totalCount) plates, \(percentage) percent\(trip.isClosed ? ", closed" : "")")
     }
 }

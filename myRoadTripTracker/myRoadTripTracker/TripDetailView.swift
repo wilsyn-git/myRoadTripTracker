@@ -23,8 +23,38 @@ struct TripDetailView: View {
     @State private var showingParticipants = false
     @State private var showingMapView = false
     @State private var isOwner = true
+    @State private var isLoading = true
 
     var body: some View {
+        if isLoading {
+            ProgressView("Loading trip\u{2026}")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .task {
+                    cloudKitUserID = await CloudKitUserHelper.currentUserID()
+                    isOwner = persistenceController.isOwner(of: trip)
+                    let participants = trip.participantsArray
+                    if participants.isEmpty {
+                        let participant = TripParticipant(
+                            context: viewContext,
+                            displayName: currentUserName,
+                            cloudKitUserID: cloudKitUserID
+                        )
+                        participant.trip = trip
+                        viewContext.save(contextInfo: "addInitialParticipant")
+                        resolvedDisplayName = currentUserName
+                    } else if let existing = participants.first(where: { $0.cloudKitUserID == cloudKitUserID }) {
+                        resolvedDisplayName = existing.displayName
+                    } else {
+                        showingNamePrompt = true
+                    }
+                    isLoading = false
+                }
+        } else {
+            tripContent
+        }
+    }
+
+    private var tripContent: some View {
         VStack(spacing: 0) {
             TextField("Trip Name", text: $trip.name)
                 .font(.title2)
@@ -105,25 +135,6 @@ struct TripDetailView: View {
                     )
                 }
                 .disabled(!isOwner)
-            }
-        }
-        .task {
-            cloudKitUserID = await CloudKitUserHelper.currentUserID()
-            isOwner = persistenceController.isOwner(of: trip)
-            let participants = trip.participantsArray
-            if participants.isEmpty {
-                let participant = TripParticipant(
-                    context: viewContext,
-                    displayName: currentUserName,
-                    cloudKitUserID: cloudKitUserID
-                )
-                participant.trip = trip
-                viewContext.save(contextInfo: "addInitialParticipant")
-                resolvedDisplayName = currentUserName
-            } else if let existing = participants.first(where: { $0.cloudKitUserID == cloudKitUserID }) {
-                resolvedDisplayName = existing.displayName
-            } else {
-                showingNamePrompt = true
             }
         }
         .cloudSharingSheet(for: trip, persistenceController: persistenceController, isPresented: $showingSharingSheet)
