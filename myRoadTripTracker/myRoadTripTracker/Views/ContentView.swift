@@ -13,7 +13,10 @@ struct ContentView: View {
     @Environment(PersistenceController.self) private var persistenceController
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)],
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \Trip.isClosed, ascending: true),
+            NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)
+        ],
         animation: .default
     )
     private var trips: FetchedResults<Trip>
@@ -21,16 +24,31 @@ struct ContentView: View {
     @State private var navigationPath = NavigationPath()
     @State private var newlyCreatedTrip: Trip?
     @State private var isPulsing = false
+    @State private var tripToDelete: Trip?
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
+    ]
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            List {
-                ForEach(trips) { trip in
-                    NavigationLink(value: trip.objectID) {
-                        TripRowView(trip: trip)
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(trips) { trip in
+                        NavigationLink(value: trip.objectID) {
+                            TripCardView(trip: trip)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                tripToDelete = trip
+                            } label: {
+                                Label("Delete Trip", systemImage: "trash")
+                            }
+                        }
                     }
                 }
-                .onDelete(perform: deleteTrips)
+                .padding()
             }
             .navigationTitle("Road Trips")
             .navigationDestination(for: NSManagedObjectID.self) { objectID in
@@ -63,6 +81,23 @@ struct ContentView: View {
             .onChange(of: trips.count) { _, newCount in
                 isPulsing = newCount == 0
             }
+            .alert("Delete Trip", isPresented: Binding(
+                get: { tripToDelete != nil },
+                set: { if !$0 { tripToDelete = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    if let trip = tripToDelete {
+                        viewContext.delete(trip)
+                        viewContext.save(contextInfo: "deleteTrip")
+                    }
+                    tripToDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    tripToDelete = nil
+                }
+            } message: {
+                Text("Are you sure you want to delete this trip? This cannot be undone.")
+            }
             .alert(
                 "Share Error",
                 isPresented: Binding(
@@ -91,10 +126,4 @@ struct ContentView: View {
         navigationPath.append(newTrip.objectID)
     }
 
-    private func deleteTrips(at offsets: IndexSet) {
-        for index in offsets {
-            viewContext.delete(trips[index])
-        }
-        viewContext.save(contextInfo: "deleteTrips")
-    }
 }

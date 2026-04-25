@@ -16,6 +16,7 @@ Packages/
 
 # Claude
 .claude/
+.superpowers/
 
 # Worktrees
 .worktrees/
