@@ -9,32 +9,49 @@ Allow users to attach photos to observation entries during road trips. Currently
 - `ObservationEntry` model: `category`, `authorName`, `text`, `createdDate`, relationship to `Trip`
 - Compose UI: text field + submit button
 - Data syncs via CloudKit (Core Data + NSPersistentCloudKitContainer)
+- Only `PlateSighting` captures location (lat/long). `ObservationEntry` does not.
 
 ## Proposed Approach
 
-Add an optional `Binary Data` attribute (`imageData`) to `ObservationEntry` with "Allows External Storage" enabled. CloudKit handles syncing large binary attributes as `CKAsset` automatically.
+Add optional `Binary Data` attributes to `ObservationEntry`:
+- `imageData` — full image (1024px wide, JPEG 0.8), with "Allows External Storage" enabled
+- `thumbnailData` — smaller thumbnail for fast list rendering
 
-- Lightweight Core Data migration (adding an optional attribute)
-- SwiftUI `PhotosPicker` for image selection
-- Display inline thumbnail in observation rows
+CloudKit handles syncing large binary attributes as `CKAsset` automatically. At 1024px / JPEG 0.8, images will be ~200-500KB each, well under the 50MB CKAsset limit.
 
-## Open Questions
+Lightweight Core Data migration (adding optional attributes — should be automatic).
+
+## Decided
 
 ### Limits & Constraints
-- [ ] Max image size? (e.g., resize to 1024px wide before storing?)
-- [ ] Max number of images per entry? (1 to start, or multiple?)
-- [ ] Compression quality? (e.g., JPEG at 0.7?)
-- [ ] CloudKit storage limits to be aware of? (CKAsset max is 50MB per asset)
+- **Max image size**: resize to 1024px wide before storing (minimizes file size)
+- **Images per entry**: 1 (users can make multiple posts if they want multiple images)
+- **Compression**: JPEG at 0.8
+- **CloudKit**: each image = 1 CKAsset, ~200-500KB each, no concerns
 
-### UX Decisions
-- [ ] Camera capture, photo library, or both?
-- [ ] Can users remove/replace an image after posting?
-- [ ] Show images as thumbnails in the list, or tap-to-expand only?
-- [ ] Should images be visible in the closed/archived trip view?
-- [ ] Any placeholder or loading state while CloudKit syncs the image?
+### UX
+- **Source**: both camera and photo library (via PhotosPicker)
+- **Editing**: users can remove their own image, but not replace (post again instead)
+- **Display**: thumbnails visible inline in the list (e.g., "sam posted: <thumbnail>")
+- **Closed trips**: images remain visible, always
+- **Sync placeholder**: `photo.badge.arrow.down` SF Symbol while CloudKit syncs
 
-### Technical Considerations
-- [ ] Generate a separate thumbnail `Data` attribute for fast list rendering?
-- [ ] Strip EXIF/location metadata from photos, or preserve it?
-- [ ] How does this interact with the share sheet / CloudKit sharing?
-- [ ] Test lightweight migration path from current schema
+### Technical
+- **Thumbnail attribute**: yes, separate `thumbnailData` field for fast list rendering
+- **EXIF metadata**: strip it. No location data on observations for now — can revisit later if valuable.
+- **CloudKit sharing**: images sync automatically to shared trip participants via CKAsset — no extra work
+- **Schema promotion**: after adding new attributes, promote development schema to production in CloudKit Dashboard before App Store release — document this step
+
+## Implementation Checklist
+
+- [ ] Add `imageData` (Binary Data, external storage) and `thumbnailData` (Binary Data) to `ObservationEntry` in the data model
+- [ ] Update `ObservationEntry+CoreDataProperties.swift` with new attributes
+- [ ] Build image resize/compress utility (1024px wide, JPEG 0.8, strip EXIF)
+- [ ] Build thumbnail generator
+- [ ] Add PhotosPicker + camera to `ComposeEntryRow`
+- [ ] Update `ObservationEntryRow` to show thumbnail inline
+- [ ] Add tap-to-view-full-image presentation
+- [ ] Add delete-own-image support
+- [ ] Add sync placeholder (photo.badge.arrow.down) for images not yet downloaded
+- [ ] Test lightweight Core Data migration from current schema
+- [ ] Document CloudKit Dashboard schema promotion steps

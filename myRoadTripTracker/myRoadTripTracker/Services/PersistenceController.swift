@@ -126,6 +126,15 @@ final class PersistenceController {
         _privatePersistentStore = privateStore
         _sharedPersistentStore = sharedStore
 
+        #if DEBUG
+        do {
+            try persistentContainer.initializeCloudKitSchema()
+            logger.info("CloudKit schema initialized successfully.")
+        } catch {
+            logger.error("Failed to initialize CloudKit schema: \(error.localizedDescription)")
+        }
+        #endif
+
         // Configure view context
         persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
         persistentContainer.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy

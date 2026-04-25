@@ -23,6 +23,8 @@
         <attribute name="authorName" attributeType="String" defaultValueString=""/>
         <attribute name="text" attributeType="String" defaultValueString=""/>
         <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="imageData" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <attribute name="thumbnailData" optional="YES" attributeType="Binary"/>
         <relationship name="trip" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Trip" inverseName="observationEntries" inverseEntity="Trip"/>
     </entity>
     <entity name="TripParticipant" representedClassName="TripParticipant" syncable="YES">

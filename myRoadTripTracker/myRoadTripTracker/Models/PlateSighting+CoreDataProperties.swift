@@ -26,6 +26,7 @@ extension PlateSighting: Identifiable {
     }
 
     var flagImageName: String {
-        locationName.lowercased().replacing(" ", with: "_")
+        let name = locationName.lowercased().replacing(" ", with: "_")
+        return name.isEmpty ? "flag" : name
     }
 }

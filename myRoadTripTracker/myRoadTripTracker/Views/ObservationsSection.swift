@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import PhotosUI
 
 struct ObservationsSection: View {
     @ObservedObject var trip: Trip
@@ -28,11 +29,15 @@ struct ObservationsSection: View {
                         .foregroundStyle(.tertiary)
                 }
                 ForEach(entries) { entry in
-                    ObservationEntryRow(entry: entry)
+                    ObservationEntryRow(entry: entry, currentUserName: currentUserName) {
+                        entry.imageData = nil
+                        entry.thumbnailData = nil
+                        viewContext.save(contextInfo: "removeObservationImage")
+                    }
                 }
                 if !trip.isClosed {
-                    ComposeEntryRow(category: category, authorName: currentUserName) { text in
-                        addEntry(category: category, text: text)
+                    ComposeEntryRow(category: category, authorName: currentUserName) { text, imageData, thumbnailData in
+                        addEntry(category: category, text: text, imageData: imageData, thumbnailData: thumbnailData)
                     }
                 }
             } header: {
@@ -81,12 +86,16 @@ struct ObservationsSection: View {
             .filter { $0.category == category }
     }
 
-    private func addEntry(category: String, text: String) {
+    private func addEntry(category: String, text: String, imageData: Data? = nil, thumbnailData: Data? = nil) {
+        // TODO: remove debug prefix after fixing image save
+        let debugPrefix = "[img:\(imageData?.count ?? 0) thumb:\(thumbnailData?.count ?? 0)] "
         let entry = ObservationEntry(
             context: viewContext,
             category: category,
             authorName: currentUserName,
-            text: text
+            text: debugPrefix + text,
+            imageData: imageData,
+            thumbnailData: thumbnailData
         )
         entry.trip = trip
         viewContext.save(contextInfo: "addObservation")
@@ -96,32 +105,134 @@ struct ObservationsSection: View {
 struct ComposeEntryRow: View {
     let category: String
     let authorName: String
-    let onSubmit: (String) -> Void
+    let onSubmit: (String, Data?, Data?) -> Void
     @State private var text = ""
     @FocusState private var isFocused: Bool
+    @State private var selectedItem: PhotosPickerItem?
+    @State private var selectedImage: UIImage?
+    @State private var showingCamera = false
+    @State private var showingPhotoPicker = false
 
     var body: some View {
-        HStack {
-            TextField("Add an observation...", text: $text, axis: .vertical)
-                .lineLimit(1...4)
-                .textFieldStyle(.roundedBorder)
-                .focused($isFocused)
-                .onSubmit {
+        VStack(alignment: .leading, spacing: 8) {
+            if let selectedImage {
+                HStack {
+                    Image(uiImage: selectedImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Spacer()
+                    Button("Remove", systemImage: "xmark.circle.fill") {
+                        self.selectedImage = nil
+                        self.selectedItem = nil
+                    }
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                TextField("Add an observation...", text: $text, axis: .vertical)
+                    .lineLimit(1...4)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isFocused)
+                    .onSubmit { submitEntry() }
+
+                Menu {
+                    Button {
+                        showingPhotoPicker = true
+                    } label: {
+                        Label("Photo Library", systemImage: "photo.on.rectangle")
+                    }
+                    Button {
+                        showingCamera = true
+                    } label: {
+                        Label("Take Photo", systemImage: "camera")
+                    }
+                } label: {
+                    Image(systemName: "paperclip")
+                        .font(.title3)
+                }
+
+                Button("Submit", systemImage: "arrow.up.circle.fill") {
                     submitEntry()
                 }
-            Button("Submit", systemImage: "arrow.up.circle.fill") {
-                submitEntry()
+                .labelStyle(.iconOnly)
+                .font(.title3)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil)
             }
-            .labelStyle(.iconOnly)
-            .font(.title3)
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .photosPicker(isPresented: $showingPhotoPicker, selection: $selectedItem, matching: .images)
+        .onChange(of: selectedItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    selectedImage = uiImage
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraPicker { image in
+                selectedImage = image
+            }
+            .ignoresSafeArea()
         }
     }
 
     private func submitEntry() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onSubmit(trimmed)
+        guard !trimmed.isEmpty || selectedImage != nil else { return }
+
+        var imageData: Data?
+        var thumbnailData: Data?
+        if let selectedImage, let processed = ImageProcessor.processImage(selectedImage) {
+            imageData = processed.imageData
+            thumbnailData = processed.thumbnailData
+        }
+
+        onSubmit(trimmed, imageData, thumbnailData)
         text = ""
+        selectedImage = nil
+        selectedItem = nil
+    }
+}
+
+struct CameraPicker: UIViewControllerRepresentable {
+    let onImagePicked: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onImagePicked: onImagePicked, dismiss: dismiss)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onImagePicked: (UIImage) -> Void
+        let dismiss: DismissAction
+
+        init(onImagePicked: @escaping (UIImage) -> Void, dismiss: DismissAction) {
+            self.onImagePicked = onImagePicked
+            self.dismiss = dismiss
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onImagePicked(image)
+            }
+            dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss()
+        }
     }
 }
