@@ -93,7 +93,7 @@ struct TripDetailView: View {
 
             switch selectedTab {
             case .plates:
-                PlatesTabView(trip: trip, locationManager: locationManager, plateFilter: plateFilter)
+                PlatesTabView(trip: trip, locationManager: locationManager, plateFilter: plateFilter, currentUserName: resolvedDisplayName ?? currentUserName)
             case .notes:
                 NotesTabView(trip: trip, currentUserName: resolvedDisplayName ?? currentUserName)
             }
@@ -188,11 +188,10 @@ struct PlatesTabView: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
     var plateFilter: PlateFilter = .all
+    var currentUserName: String
 
     var body: some View {
-        List {
-            PlateSightingsSection(trip: trip, locationManager: locationManager, plateFilter: plateFilter)
-        }
+        PlateSightingsGrid(trip: trip, locationManager: locationManager, plateFilter: plateFilter, currentUserName: currentUserName)
     }
 }
 

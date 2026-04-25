@@ -15,6 +15,7 @@
         <attribute name="latitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="longitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="seenDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="spottedByName" optional="YES" attributeType="String"/>
         <relationship name="trip" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Trip" inverseName="plateSightings" inverseEntity="Trip"/>
     </entity>
     <entity name="ObservationEntry" representedClassName="ObservationEntry" syncable="YES">

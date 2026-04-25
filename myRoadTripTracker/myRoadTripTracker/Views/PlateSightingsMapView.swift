@@ -4,6 +4,7 @@ import MapKit
 
 struct PlateSightingsMapView: View {
     let sightings: [PlateSighting]
+    var embedded: Bool = false
     @Environment(\.dismiss) private var dismiss
     @State private var position: MapCameraPosition = .automatic
     @State private var selectedSighting: PlateSighting?
@@ -33,55 +34,65 @@ struct PlateSightingsMapView: View {
         }
     }
 
-    var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                Map(position: $position) {
-                    ForEach(mappableSightings, id: \.sighting.objectID) { item in
-                        Annotation(item.sighting.locationCode, coordinate: item.coordinate) {
-                            Image(item.sighting.flagImageName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 32, height: 20)
-                                .clipShape(.rect(cornerRadius: 2))
-                                .shadow(radius: 2)
-                                .opacity(item.isInterpolated ? 0.6 : 1.0)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .stroke(selectedSighting?.objectID == item.sighting.objectID ? Color.accentColor : Color.white, lineWidth: 1.5)
-                                )
-                                .onTapGesture {
-                                    withAnimation {
-                                        selectedSighting = item.sighting
-                                    }
+    private var mapContent: some View {
+        ZStack(alignment: .bottom) {
+            Map(position: $position) {
+                ForEach(mappableSightings, id: \.sighting.objectID) { item in
+                    Annotation(item.sighting.locationCode, coordinate: item.coordinate) {
+                        Image(item.sighting.flagImageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 32, height: 20)
+                            .clipShape(.rect(cornerRadius: 2))
+                            .shadow(radius: 2)
+                            .opacity(item.isInterpolated ? 0.6 : 1.0)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(selectedSighting?.objectID == item.sighting.objectID ? Color.accentColor : Color.white, lineWidth: 1.5)
+                            )
+                            .onTapGesture {
+                                withAnimation {
+                                    selectedSighting = item.sighting
                                 }
-                                .accessibilityLabel("\(item.sighting.locationName) plate sighting\(item.isInterpolated ? ", approximate location" : "")")
-                                .accessibilityHint("Tap for details")
-                        }
+                            }
+                            .accessibilityLabel("\(item.sighting.locationName) plate sighting\(item.isInterpolated ? ", approximate location" : "")")
+                            .accessibilityHint("Tap for details")
                     }
-                }
-                .mapStyle(.standard)
-                .onTapGesture {
-                    withAnimation {
-                        selectedSighting = nil
-                    }
-                }
-
-                if let sighting = selectedSighting {
-                    let isInterpolated = mappableSightings.first(where: { $0.sighting.objectID == sighting.objectID })?.isInterpolated ?? false
-                    SightingDetailCard(sighting: sighting, isInterpolated: isInterpolated)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .padding()
                 }
             }
-            .navigationTitle("Plate Sightings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
+            .mapStyle(.standard)
+            .onTapGesture {
+                withAnimation {
+                    selectedSighting = nil
                 }
+            }
+
+            if let sighting = selectedSighting {
+                let isInterpolated = mappableSightings.first(where: { $0.sighting.objectID == sighting.objectID })?.isInterpolated ?? false
+                SightingDetailCard(sighting: sighting, isInterpolated: isInterpolated)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding()
+            }
+        }
+    }
+
+    var body: some View {
+        if embedded {
+            mapContent
+                .navigationTitle("Plate Sightings")
+                .navigationBarTitleDisplayMode(.inline)
+        } else {
+            NavigationStack {
+                mapContent
+                    .navigationTitle("Plate Sightings")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                dismiss()
+                            }
+                        }
+                    }
             }
         }
     }

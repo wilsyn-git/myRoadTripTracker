@@ -15,7 +15,7 @@ class LocationManager: NSObject {
     private let manager = CLLocationManager()
     var currentLocation: CLLocation?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    private var locationContinuation: CheckedContinuation<CLLocation?, Never>?
+    private var locationContinuations: [CheckedContinuation<CLLocation?, Never>] = []
 
     override init() {
         super.init()
@@ -43,7 +43,7 @@ class LocationManager: NSObject {
 
         while Date() < deadline {
             let location = await withCheckedContinuation { continuation in
-                locationContinuation = continuation
+                locationContinuations.append(continuation)
                 manager.requestLocation()
             }
             if let location {
@@ -61,15 +61,21 @@ extension LocationManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         Task { @MainActor in
             self.currentLocation = location
-            self.locationContinuation?.resume(returning: location)
-            self.locationContinuation = nil
+            let continuations = self.locationContinuations
+            self.locationContinuations = []
+            for continuation in continuations {
+                continuation.resume(returning: location)
+            }
         }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor in
-            self.locationContinuation?.resume(returning: nil)
-            self.locationContinuation = nil
+            let continuations = self.locationContinuations
+            self.locationContinuations = []
+            for continuation in continuations {
+                continuation.resume(returning: nil)
+            }
         }
     }
 
