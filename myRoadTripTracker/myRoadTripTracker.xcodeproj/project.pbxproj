@@ -267,7 +267,7 @@
 				CODE_SIGN_ENTITLEMENTS = myRoadTripTracker/Resources/myRoadTripTracker.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 46;
 				DEVELOPMENT_TEAM = Y4D6SPW6PL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -284,7 +284,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.39;
+				MARKETING_VERSION = 0.46;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tentenbits.myRoadTripTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -310,7 +310,7 @@
 				CODE_SIGN_ENTITLEMENTS = myRoadTripTracker/Resources/myRoadTripTracker.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 46;
 				DEVELOPMENT_TEAM = Y4D6SPW6PL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -327,7 +327,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.39;
+				MARKETING_VERSION = 0.46;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tentenbits.myRoadTripTracker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

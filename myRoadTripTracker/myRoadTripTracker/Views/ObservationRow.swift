@@ -21,10 +21,6 @@ struct ObservationEntryRow: View {
                 Text(entry.text)
                     .font(.body)
             }
-            // TODO: remove after debugging
-            Text("img: \(entry.imageData?.count ?? 0) thumb: \(entry.thumbnailData?.count ?? 0)")
-                .font(.caption2)
-                .foregroundStyle(.red)
             if let thumbnailData = entry.thumbnailData, let uiImage = UIImage(data: thumbnailData) {
                 Image(uiImage: uiImage)
                     .resizable()

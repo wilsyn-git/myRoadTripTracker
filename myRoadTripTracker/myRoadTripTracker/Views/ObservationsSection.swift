@@ -36,9 +36,11 @@ struct ObservationsSection: View {
                     }
                 }
                 if !trip.isClosed {
-                    ComposeEntryRow(category: category, authorName: currentUserName) { text, imageData, thumbnailData in
-                        addEntry(category: category, text: text, imageData: imageData, thumbnailData: thumbnailData)
-                    }
+                    ComposeEntryRow(
+                        trip: trip,
+                        category: category,
+                        authorName: currentUserName
+                    )
                 }
             } header: {
                 Text(category)
@@ -85,58 +87,58 @@ struct ObservationsSection: View {
         trip.observationEntriesArray
             .filter { $0.category == category }
     }
-
-    private func addEntry(category: String, text: String, imageData: Data? = nil, thumbnailData: Data? = nil) {
-        // TODO: remove debug prefix after fixing image save
-        let debugPrefix = "[img:\(imageData?.count ?? 0) thumb:\(thumbnailData?.count ?? 0)] "
-        let entry = ObservationEntry(
-            context: viewContext,
-            category: category,
-            authorName: currentUserName,
-            text: debugPrefix + text,
-            imageData: imageData,
-            thumbnailData: thumbnailData
-        )
-        entry.trip = trip
-        viewContext.save(contextInfo: "addObservation")
-    }
 }
 
 struct ComposeEntryRow: View {
+    @ObservedObject var trip: Trip
     let category: String
     let authorName: String
-    let onSubmit: (String, Data?, Data?) -> Void
+    @Environment(\.managedObjectContext) private var viewContext
     @State private var text = ""
     @FocusState private var isFocused: Bool
     @State private var selectedItem: PhotosPickerItem?
-    @State private var selectedImage: UIImage?
+    @State private var previewImage: UIImage?
+    @State private var processedImageData: Data?
+    @State private var processedThumbnailData: Data?
+    @State private var isLoadingImage = false
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
+    @State private var saveError: String?
+
+    private var hasAttachment: Bool {
+        processedImageData != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let selectedImage {
+            if let saveError {
+                Text("Save failed: \(saveError)")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            if let previewImage {
                 HStack {
-                    Image(uiImage: selectedImage)
+                    Image(uiImage: previewImage)
                         .resizable()
                         .scaledToFit()
                         .frame(maxHeight: 150)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     Spacer()
                     Button("Remove", systemImage: "xmark.circle.fill") {
-                        self.selectedImage = nil
-                        self.selectedItem = nil
+                        clearAttachment()
                     }
                     .labelStyle(.iconOnly)
                     .foregroundStyle(.secondary)
                 }
+            } else if isLoadingImage {
+                ProgressView("Loading photo...")
+                    .font(.caption)
             }
             HStack {
                 TextField("Add an observation...", text: $text, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.roundedBorder)
                     .focused($isFocused)
-                    .onSubmit { submitEntry() }
 
                 Menu {
                     Button {
@@ -159,42 +161,80 @@ struct ComposeEntryRow: View {
                 }
                 .labelStyle(.iconOnly)
                 .font(.title3)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedImage == nil)
+                .disabled(isLoadingImage || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !hasAttachment))
             }
         }
         .photosPicker(isPresented: $showingPhotoPicker, selection: $selectedItem, matching: .images)
         .onChange(of: selectedItem) { _, newItem in
             guard let newItem else { return }
+            isLoadingImage = true
             Task {
-                if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    selectedImage = uiImage
-                }
+                defer { isLoadingImage = false }
+                guard let data = try? await newItem.loadTransferable(type: Data.self),
+                      let uiImage = UIImage(data: data) else { return }
+                processImage(uiImage)
             }
         }
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { image in
-                selectedImage = image
+                processImage(image)
             }
             .ignoresSafeArea()
         }
     }
 
+    private func processImage(_ image: UIImage) {
+        guard let processed = ImageProcessor.processImage(image) else { return }
+        previewImage = image
+        processedImageData = processed.imageData
+        processedThumbnailData = processed.thumbnailData
+    }
+
+    private func clearAttachment() {
+        previewImage = nil
+        processedImageData = nil
+        processedThumbnailData = nil
+        selectedItem = nil
+    }
+
     private func submitEntry() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || selectedImage != nil else { return }
+        let imgData = processedImageData
+        let thumbData = processedThumbnailData
+        guard !trimmed.isEmpty || imgData != nil else { return }
 
-        var imageData: Data?
-        var thumbnailData: Data?
-        if let selectedImage, let processed = ImageProcessor.processImage(selectedImage) {
-            imageData = processed.imageData
-            thumbnailData = processed.thumbnailData
+        saveError = nil
+        let imgSize = imgData?.count ?? 0
+        let thumbSize = thumbData?.count ?? 0
+        let debugText = "\(trimmed) [img:\(imgSize) thumb:\(thumbSize) preview:\(previewImage != nil)]"
+
+        let entry = ObservationEntry(
+            context: viewContext,
+            category: category,
+            authorName: authorName,
+            text: debugText,
+            imageData: imgData,
+            thumbnailData: thumbData
+        )
+        entry.trip = trip
+
+        do {
+            try viewContext.save()
+        } catch {
+            saveError = "\(error.localizedDescription) [img:\(imgSize) thumb:\(thumbSize)]"
+            return
         }
 
-        onSubmit(trimmed, imageData, thumbnailData)
+        // Verify data persisted after save
+        let verifyImg = entry.imageData?.count ?? 0
+        let verifyThumb = entry.thumbnailData?.count ?? 0
+        if verifyImg != imgSize || verifyThumb != thumbSize {
+            saveError = "Data lost after save! before:[\(imgSize)/\(thumbSize)] after:[\(verifyImg)/\(verifyThumb)]"
+            return
+        }
+
         text = ""
-        selectedImage = nil
-        selectedItem = nil
+        clearAttachment()
     }
 }
 
