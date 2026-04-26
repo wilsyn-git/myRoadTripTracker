@@ -205,5 +205,12 @@ struct NotesTabView: View {
         List {
             ObservationsSection(trip: trip, currentUserName: currentUserName)
         }
+        .onAppear { markObservationsViewed() }
+        .onDisappear { markObservationsViewed() }
+    }
+
+    private func markObservationsViewed() {
+        guard let tripID = trip.tripID?.uuidString else { return }
+        UserDefaults.standard.set(Date(), forKey: "lastViewedObservations_\(tripID)")
     }
 }

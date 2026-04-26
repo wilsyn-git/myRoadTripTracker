@@ -5,13 +5,33 @@ struct TripCardView: View {
     @ObservedObject var trip: Trip
 
     private var sightings: [PlateSighting] { trip.plateSightingsArray }
+
     private static let usCodes = Set(Location.usStates.map(\.code))
-    private var seenCount: Int { sightings.filter { Self.usCodes.contains($0.locationCode) }.count }
-    private var totalCount: Int { Location.usStates.count }
-    private var progress: Double {
-        totalCount > 0 ? Double(seenCount) / Double(totalCount) : 0
+    private var usSeenCount: Int { sightings.filter { Self.usCodes.contains($0.locationCode) }.count }
+    private var usTotalCount: Int { Location.usStates.count }
+    private var usProgress: Double {
+        usTotalCount > 0 ? Double(usSeenCount) / Double(usTotalCount) : 0
     }
+
+    private static let caCodes = Set(Location.canadaLocations.map(\.code))
+    private var caSeenCount: Int { sightings.filter { Self.caCodes.contains($0.locationCode) }.count }
+    private var caTotalCount: Int { Location.canadaLocations.count }
+    private var caProgress: Double {
+        caTotalCount > 0 ? Double(caSeenCount) / Double(caTotalCount) : 0
+    }
+
     private var isShared: Bool { trip.participantsArray.count > 1 }
+
+    private var observations: [ObservationEntry] { trip.observationEntriesArray }
+    private var totalObservationCount: Int { observations.count }
+    private var newObservationCount: Int {
+        guard let tripID = trip.tripID?.uuidString else { return totalObservationCount }
+        let key = "lastViewedObservations_\(tripID)"
+        guard let lastViewed = UserDefaults.standard.object(forKey: key) as? Date else {
+            return totalObservationCount
+        }
+        return observations.filter { ($0.createdDate ?? .distantPast) > lastViewed }.count
+    }
 
     private var recentSightings: [PlateSighting] {
         Array(sightings.suffix(5).reversed())
@@ -38,8 +58,28 @@ struct TripCardView: View {
                     }
                     Text(trip.createdDate ?? Date(), style: .date)
                         .font(.caption)
+
+                    Spacer()
+
+                    if totalObservationCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "text.bubble.fill")
+                                .font(.caption2)
+                            Text("\(totalObservationCount)")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            if newObservationCount > 0 {
+                                Circle()
+                                    .fill(.orange)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                    }
+
                     if isShared {
-                        Spacer()
                         Image(systemName: "person.2.fill")
                             .font(.caption2)
                             .accessibilityHidden(true)
@@ -73,7 +113,14 @@ struct TripCardView: View {
 
             Spacer()
 
-            ProgressRingView(progress: progress, seenCount: seenCount, label: "\(seenCount)/\(totalCount)")
+            DualProgressRingView(
+                usProgress: usProgress,
+                usSeenCount: usSeenCount,
+                usTotalCount: usTotalCount,
+                caProgress: caProgress,
+                caSeenCount: caSeenCount,
+                caTotalCount: caTotalCount
+            )
         }
         .foregroundStyle(.white)
         .padding()
@@ -81,37 +128,56 @@ struct TripCardView: View {
         .aspectRatio(0.85, contentMode: .fit)
         .background(cardColor.gradient, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(trip.name), \(seenCount) of \(totalCount) plates\(trip.isClosed ? ", closed" : "")")
+        .accessibilityLabel("\(trip.name), \(usSeenCount) of \(usTotalCount) US plates, \(caSeenCount) of \(caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")")
     }
 }
 
-struct ProgressRingView: View {
-    let progress: Double
-    let seenCount: Int
-    let label: String
+struct DualProgressRingView: View {
+    let usProgress: Double
+    let usSeenCount: Int
+    let usTotalCount: Int
+    let caProgress: Double
+    let caSeenCount: Int
+    let caTotalCount: Int
 
-    private var ringColor: Color {
-        if seenCount <= 15 {
-            return .red
-        } else if seenCount <= 30 {
-            return .yellow
-        } else {
-            return .green
-        }
+    private var usRingColor: Color {
+        if usSeenCount <= 15 { return .red }
+        else if usSeenCount <= 30 { return .yellow }
+        else { return .green }
+    }
+
+    private var caRingColor: Color {
+        if caSeenCount <= 4 { return .red }
+        else if caSeenCount <= 8 { return .yellow }
+        else { return .green }
     }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(.white.opacity(0.25), lineWidth: 6)
+                .stroke(.white.opacity(0.25), lineWidth: 5)
             Circle()
-                .trim(from: 0, to: progress)
-                .stroke(ringColor, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .trim(from: 0, to: usProgress)
+                .stroke(usRingColor, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            Text(label)
-                .font(.caption)
-                .fontWeight(.bold)
+
+            Circle()
+                .stroke(.white.opacity(0.25), lineWidth: 4)
+                .padding(8)
+            Circle()
+                .trim(from: 0, to: caProgress)
+                .stroke(caRingColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .padding(8)
+
+            VStack(spacing: 1) {
+                Text("\(usSeenCount)/\(usTotalCount)")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                Text("\(caSeenCount)/\(caTotalCount)")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .opacity(0.75)
+            }
         }
-        .frame(width: 60, height: 60)
+        .frame(width: 64, height: 64)
     }
 }
