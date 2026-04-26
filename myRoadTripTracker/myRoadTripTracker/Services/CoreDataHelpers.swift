@@ -6,13 +6,29 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "myRoadTr
 // MARK: - Contextual Save
 
 extension NSManagedObjectContext {
-    /// Save with contextual info for debugging. No-op if no changes.
+    /// Save with contextual info for debugging. No-op if no changes. Swallows errors (logs them).
     func save(contextInfo: String) {
+        do {
+            try trySave(contextInfo: contextInfo)
+        } catch {
+            // Already logged by trySave.
+        }
+    }
+
+    /// Throwing variant — use when the caller needs to surface the error to the UI.
+    func trySave(contextInfo: String) throws {
         guard hasChanges else { return }
         do {
             try save()
         } catch {
-            logger.error("Failed to save (\(contextInfo)): \(error.localizedDescription)")
+            let nsError = error as NSError
+            logger.error("Failed to save (\(contextInfo)): \(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription) userInfo=\(nsError.userInfo)")
+            if let detailed = nsError.userInfo[NSDetailedErrorsKey] as? [NSError] {
+                for sub in detailed {
+                    logger.error("  detailed (\(contextInfo)): \(sub.domain) code=\(sub.code) \(sub.localizedDescription) userInfo=\(sub.userInfo)")
+                }
+            }
+            throw error
         }
     }
 }
