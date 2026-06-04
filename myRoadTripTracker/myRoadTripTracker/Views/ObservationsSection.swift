@@ -20,15 +20,19 @@ struct ObservationsSection: View {
     ]
 
     var body: some View {
-        ForEach(allCategories, id: \.self) { category in
+        // Group entries by category once instead of re-filtering the full list per section.
+        let entries = trip.observationEntriesArray
+        let grouped = Dictionary(grouping: entries, by: \.category)
+
+        ForEach(categories(from: entries), id: \.self) { category in
             Section {
-                let entries = entriesForCategory(category)
-                if entries.isEmpty {
+                let categoryEntries = grouped[category] ?? []
+                if categoryEntries.isEmpty {
                     Text("No entries yet")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                ForEach(entries) { entry in
+                ForEach(categoryEntries) { entry in
                     ObservationEntryRow(entry: entry, currentUserName: currentUserName) {
                         entry.imageData = nil
                         entry.thumbnailData = nil
@@ -62,7 +66,7 @@ struct ObservationsSection: View {
                 }
                 Button("Add") {
                     let trimmed = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty, !allCategories.contains(trimmed) {
+                    if !trimmed.isEmpty, !categories(from: trip.observationEntriesArray).contains(trimmed) {
                         addedCategories.append(trimmed)
                     }
                     newCategoryName = ""
@@ -71,9 +75,8 @@ struct ObservationsSection: View {
         }
     }
 
-    private var allCategories: [String] {
-        let entries = trip.observationEntriesArray
-        let entryCategories = Set(entries.map { $0.category })
+    private func categories(from entries: [ObservationEntry]) -> [String] {
+        let entryCategories = Set(entries.map(\.category))
         var categories = predefinedCategories
         let custom = entryCategories
             .union(addedCategories)
@@ -81,11 +84,6 @@ struct ObservationsSection: View {
             .sorted()
         categories.append(contentsOf: custom)
         return categories
-    }
-
-    private func entriesForCategory(_ category: String) -> [ObservationEntry] {
-        trip.observationEntriesArray
-            .filter { $0.category == category }
     }
 }
 

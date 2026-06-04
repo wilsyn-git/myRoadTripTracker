@@ -25,6 +25,7 @@ struct ContentView: View {
     @State private var newlyCreatedTrip: Trip?
     @State private var isPulsing = false
     @State private var tripToDelete: Trip?
+    @State private var showingDeleteAlert = false
 
     private let columns = [
         GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
@@ -42,6 +43,7 @@ struct ContentView: View {
                         .contextMenu {
                             Button(role: .destructive) {
                                 tripToDelete = trip
+                                showingDeleteAlert = true
                             } label: {
                                 Label("Delete Trip", systemImage: "trash")
                             }
@@ -81,21 +83,16 @@ struct ContentView: View {
             .onChange(of: trips.count) { _, newCount in
                 isPulsing = newCount == 0
             }
-            .alert("Delete Trip", isPresented: Binding(
-                get: { tripToDelete != nil },
-                set: { if !$0 { tripToDelete = nil } }
-            )) {
+            .alert("Delete Trip", isPresented: $showingDeleteAlert, presenting: tripToDelete) { trip in
                 Button("Delete", role: .destructive) {
-                    if let trip = tripToDelete {
-                        viewContext.delete(trip)
-                        viewContext.save(contextInfo: "deleteTrip")
-                    }
+                    viewContext.delete(trip)
+                    viewContext.save(contextInfo: "deleteTrip")
                     tripToDelete = nil
                 }
                 Button("Cancel", role: .cancel) {
                     tripToDelete = nil
                 }
-            } message: {
+            } message: { _ in
                 Text("Are you sure you want to delete this trip? This cannot be undone.")
             }
             .alert(

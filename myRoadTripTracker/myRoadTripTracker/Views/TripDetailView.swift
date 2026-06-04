@@ -64,7 +64,14 @@ struct TripDetailView: View {
                 .disabled(trip.isClosed)
                 .padding(.horizontal)
                 .padding(.top, 8)
-                .onChange(of: trip.name) { _, _ in
+                .onChange(of: isNameFieldFocused) { _, focused in
+                    // Commit once when the user finishes editing, rather than on every
+                    // keystroke — avoids syncing partial names to collaborators.
+                    if !focused { viewContext.save(contextInfo: "tripNameChange") }
+                }
+                .onDisappear {
+                    // Safety net: if the view tears down while the field is still focused
+                    // (e.g. navigating back without dismissing the keyboard).
                     viewContext.save(contextInfo: "tripNameChange")
                 }
                 .toolbar {
@@ -103,15 +110,17 @@ struct TripDetailView: View {
             if selectedTab == .plates {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        ForEach(PlateFilter.allCases, id: \.self) { filter in
-                            Button {
-                                plateFilter = filter
-                            } label: {
-                                Label(filter.rawValue, systemImage: plateFilter == filter ? "checkmark" : "")
+                        // A Picker inside a Menu renders the options with a native
+                        // checkmark on the selection — no empty-SF-Symbol hack needed.
+                        Picker("Filter", selection: $plateFilter) {
+                            ForEach(PlateFilter.allCases, id: \.self) { filter in
+                                Text(filter.rawValue).tag(filter)
                             }
                         }
                     } label: {
-                        Image(systemName: plateFilter == .all
+                        // Label (not bare Image) gives VoiceOver a spoken name while the
+                        // toolbar still renders it icon-only.
+                        Label("Filter Plates", systemImage: plateFilter == .all
                               ? "line.3.horizontal.decrease.circle"
                               : "line.3.horizontal.decrease.circle.fill")
                     }

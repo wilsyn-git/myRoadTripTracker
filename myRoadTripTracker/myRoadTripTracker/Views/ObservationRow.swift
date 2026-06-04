@@ -22,12 +22,19 @@ struct ObservationEntryRow: View {
                     .font(.body)
             }
             if let thumbnailData = entry.thumbnailData, let uiImage = UIImage(data: thumbnailData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .onTapGesture { showingFullImage = true }
+                Button {
+                    showingFullImage = true
+                } label: {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                // .borderless keeps the tap target on the image only (not the whole List
+                // row) and makes it a real, VoiceOver-actionable control.
+                .buttonStyle(.borderless)
+                .accessibilityLabel("View photo full screen")
             } else if entry.imageData != nil {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.title2)

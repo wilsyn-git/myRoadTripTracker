@@ -23,17 +23,12 @@ struct PlateSightingsGrid: View {
         trip.plateSightingsArray
     }
 
-    private func seenCount(in locations: [Location]) -> Int {
-        let codes = Set(locations.map(\.code))
-        return sightings.filter { codes.contains($0.locationCode) }.count
-    }
-
-    private func filtered(_ locations: [Location]) -> [Location] {
+    private func filtered(_ locations: [Location], seenCodes: Set<String>) -> [Location] {
         switch plateFilter {
         case .all:
             return locations
         case .notSeen:
-            return locations.filter { !isSeen($0) }
+            return locations.filter { !seenCodes.contains($0.code) }
         }
     }
 
@@ -46,13 +41,17 @@ struct PlateSightingsGrid: View {
     }
 
     var body: some View {
+        // Build the seen-code lookup once per render so each tile does an O(1) membership
+        // check instead of scanning every sighting.
+        let seenCodes = Set(sightings.map(\.locationCode))
+
         ScrollView {
             VStack(spacing: 16) {
                 if trip.isClosed {
                     closedTripBanner
                 }
-                sectionView(title: "US States & DC", locations: Location.usStates)
-                sectionView(title: "Canada", locations: Location.canadaLocations)
+                sectionView(title: "US States & DC", locations: Location.usStates, seenCodes: seenCodes)
+                sectionView(title: "Canada", locations: Location.canadaLocations, seenCodes: seenCodes)
             }
             .padding(.horizontal)
             .padding(.top, 8)
@@ -74,25 +73,25 @@ struct PlateSightingsGrid: View {
         .background(Color(.systemGray5), in: Capsule())
     }
 
-    private func sectionView(title: String, locations: [Location]) -> some View {
-        let visible = filtered(locations)
+    private func sectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+        let visible = filtered(locations, seenCodes: seenCodes)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
         return VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: title, locations: locations)
+            sectionHeader(title: title, locations: locations, seenCodes: seenCodes)
 
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(visible) { location in
                     PlateTileView(
                         location: location,
-                        isSeen: isSeen(location),
+                        isSeen: seenCodes.contains(location.code),
                         isRecording: recordingCodes.contains(location.code),
                         isRevealing: revealingCodes.contains(location.code),
                         onTapUnseen: { markAsSeen(location) },
                         onTapSeen: { sightingToInspect = sighting(for: location) }
                     )
                     .contextMenu {
-                        if isSeen(location), !trip.isClosed {
+                        if seenCodes.contains(location.code), !trip.isClosed {
                             Button("Remove sighting", role: .destructive) {
                                 unmarkAsSeen(location)
                             }
@@ -103,8 +102,8 @@ struct PlateSightingsGrid: View {
         }
     }
 
-    private func sectionHeader(title: String, locations: [Location]) -> some View {
-        let seen = seenCount(in: locations)
+    private func sectionHeader(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+        let seen = locations.filter { seenCodes.contains($0.code) }.count
         let total = locations.count
         let progress = total > 0 ? Double(seen) / Double(total) : 0
 
@@ -316,7 +315,8 @@ struct PlateTileView: View {
         showBurst = true
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
             withAnimation(.easeIn(duration: 0.15)) {
                 showCheckmark = true
             }
