@@ -22,6 +22,8 @@ struct TripDetailView: View {
     @State private var cloudKitUserID: String = ""
     @State private var showingParticipants = false
     @State private var showingMapView = false
+    @State private var showingRecap = false
+    @State private var isGeneratingRecap = false
     @State private var isOwner = true
     @State private var isLoading = true
     @State private var plateFilter: PlateFilter = .all
@@ -153,8 +155,19 @@ struct TripDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
+                    showingRecap = true
+                } label: {
+                    Label("Trip Recap", systemImage: "sparkles")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    let wasClosed = trip.isClosed
                     trip.isClosed.toggle()
                     viewContext.save(contextInfo: "toggleClosed")
+                    if !wasClosed {
+                        Task { await generateRecap() }
+                    }
                 } label: {
                     Label(
                         trip.isClosed ? "Reopen Trip" : "Close Trip",
@@ -175,6 +188,9 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingMapView) {
             PlateSightingsMapView(sightings: trip.plateSightingsArray)
         }
+        .sheet(isPresented: $showingRecap) {
+            TripRecapView(trip: trip)
+        }
         .sheet(isPresented: $showingNamePrompt) {
             JoinTripNameView(trip: trip) { name in
                 let participant = TripParticipant(
@@ -188,6 +204,22 @@ struct TripDetailView: View {
                 showingNamePrompt = false
             }
         }
+    }
+
+    @MainActor
+    private func generateRecap() async {
+        guard isOwner, !isGeneratingRecap else { return }
+        let stats = RecapStats(trip: trip)
+        guard !stats.isEmpty else { return }
+        isGeneratingRecap = true
+        defer { isGeneratingRecap = false }
+        let narrative = await RecapNarrativeGenerator.generate(from: stats, tripName: trip.name)
+        // Back on the main actor after the await. recapGeneratedDate is stamped even when
+        // the model is unavailable (narrative == nil) so the "recap ready" badge appears
+        // for everyone; TripRecapView falls back to the template narrative.
+        if let narrative { trip.recapNarrative = narrative }
+        trip.recapGeneratedDate = Date()
+        viewContext.save(contextInfo: "generateRecap")
     }
 }
 
