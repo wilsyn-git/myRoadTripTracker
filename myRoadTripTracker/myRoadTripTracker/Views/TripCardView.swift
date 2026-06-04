@@ -33,6 +33,16 @@ struct TripCardView: View {
         return observations.filter { ($0.createdDate ?? .distantPast) > lastViewed }.count
     }
 
+    private var hasUnseenRecap: Bool {
+        guard let generated = trip.recapGeneratedDate else { return false }
+        guard let tripID = trip.tripID?.uuidString else { return true }
+        let key = "lastViewedRecap_\(tripID)"
+        guard let lastViewed = UserDefaults.standard.object(forKey: key) as? Date else {
+            return true
+        }
+        return generated > lastViewed
+    }
+
     private var recentSightings: [PlateSighting] {
         Array(sightings.suffix(5).reversed())
     }
@@ -77,6 +87,13 @@ struct TripCardView: View {
                                     .offset(x: 4, y: -4)
                             }
                         }
+                    }
+
+                    if hasUnseenRecap {
+                        Image(systemName: "sparkles")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                            .accessibilityLabel("New recap available")
                     }
 
                     if isShared {
@@ -128,6 +145,6 @@ struct TripCardView: View {
         .aspectRatio(0.85, contentMode: .fit)
         .background(cardColor.gradient, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(trip.name), \(usSeenCount) of \(usTotalCount) US plates, \(caSeenCount) of \(caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")")
+        .accessibilityLabel("\(trip.name), \(usSeenCount) of \(usTotalCount) US plates, \(caSeenCount) of \(caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")\(hasUnseenRecap ? ", new recap available" : "")")
     }
 }
