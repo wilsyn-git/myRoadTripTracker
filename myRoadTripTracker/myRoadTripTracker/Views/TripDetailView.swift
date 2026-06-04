@@ -100,7 +100,7 @@ struct TripDetailView: View {
 
             switch selectedTab {
             case .plates:
-                PlatesTabView(trip: trip, locationManager: locationManager, plateFilter: plateFilter, currentUserName: resolvedDisplayName ?? currentUserName)
+                PlateSightingsGrid(trip: trip, locationManager: locationManager, plateFilter: plateFilter, currentUserName: resolvedDisplayName ?? currentUserName)
             case .notes:
                 NotesTabView(trip: trip, currentUserName: resolvedDisplayName ?? currentUserName)
             }
@@ -188,19 +188,6 @@ struct TripDetailView: View {
                 showingNamePrompt = false
             }
         }
-    }
-}
-
-// MARK: - Plates Tab
-
-struct PlatesTabView: View {
-    @ObservedObject var trip: Trip
-    var locationManager: LocationManager
-    var plateFilter: PlateFilter = .all
-    var currentUserName: String
-
-    var body: some View {
-        PlateSightingsGrid(trip: trip, locationManager: locationManager, plateFilter: plateFilter, currentUserName: currentUserName)
     }
 }
 
