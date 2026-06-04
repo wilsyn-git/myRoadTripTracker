@@ -5,6 +5,8 @@
         <attribute name="name" attributeType="String" defaultValueString="New Trip"/>
         <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="isClosed" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="recapNarrative" optional="YES" attributeType="String"/>
+        <attribute name="recapGeneratedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="plateSightings" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PlateSighting" inverseName="trip" inverseEntity="PlateSighting"/>
         <relationship name="observationEntries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ObservationEntry" inverseName="trip" inverseEntity="ObservationEntry"/>
         <relationship name="participants" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TripParticipant" inverseName="trip" inverseEntity="TripParticipant"/>

@@ -10,6 +10,8 @@ extension Trip {
     @NSManaged public var name: String
     @NSManaged public var createdDate: Date?
     @NSManaged public var isClosed: Bool
+    @NSManaged public var recapNarrative: String?
+    @NSManaged public var recapGeneratedDate: Date?
     @NSManaged public var plateSightings: NSSet?
     @NSManaged public var observationEntries: NSSet?
     @NSManaged public var participants: NSSet?
