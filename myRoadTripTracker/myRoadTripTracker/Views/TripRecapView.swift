@@ -129,8 +129,11 @@ struct TripRecapView: View {
         narrative = trip.recapNarrative ?? computed.templateNarrative(tripName: trip.name)
         shareText = "\(trip.name)\n\(narrative)"
 
+        // Extract coordinates on the main actor (NSManagedObject reads) before handing
+        // off to the off-actor snapshotter.
+        let coords = trip.plateSightingsArray.filter(\.hasValidCoordinate).map(\.coordinate)
         let snapshot = await RecapMapRenderer.snapshot(
-            for: trip.plateSightingsArray,
+            for: coords,
             size: CGSize(width: 600, height: 360)
         )
         mapImage = snapshot

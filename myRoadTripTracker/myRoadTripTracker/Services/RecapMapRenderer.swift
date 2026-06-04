@@ -5,19 +5,18 @@ import CoreLocation
 /// Renders a static map image with pins for a trip's sightings. Pins only — no routes.
 enum RecapMapRenderer {
 
-    static func snapshot(for sightings: [PlateSighting], size: CGSize) async -> UIImage? {
-        let coords = sightings.filter(\.hasValidCoordinate).map(\.coordinate)
-        guard !coords.isEmpty else { return nil }
+    static func snapshot(for coordinates: [CLLocationCoordinate2D], size: CGSize) async -> UIImage? {
+        guard !coordinates.isEmpty else { return nil }
 
         let options = MKMapSnapshotter.Options()
-        options.region = region(for: coords)
+        options.region = region(for: coordinates)
         options.size = size
         options.mapType = .standard
 
         let snapshotter = MKMapSnapshotter(options: options)
         do {
             let snapshot = try await snapshotter.start()
-            return draw(coords: coords, on: snapshot, size: size)
+            return draw(coords: coordinates, on: snapshot, size: size)
         } catch {
             #if DEBUG
             print("[RecapMapRenderer] snapshot failed: \(error)")
