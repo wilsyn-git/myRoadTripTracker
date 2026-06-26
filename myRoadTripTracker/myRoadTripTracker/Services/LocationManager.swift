@@ -16,6 +16,7 @@ class LocationManager: NSObject {
     var currentLocation: CLLocation?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
     private var locationContinuations: [CheckedContinuation<CLLocation?, Never>] = []
+    private var authorizationContinuations: [CheckedContinuation<CLAuthorizationStatus, Never>] = []
 
     override init() {
         super.init()
@@ -30,13 +31,7 @@ class LocationManager: NSObject {
 
     /// Request a location fix, retrying over the given duration before giving up.
     func requestCurrentLocation(timeout: TimeInterval = 30) async -> CLLocation? {
-        if authorizationStatus != .authorizedWhenInUse && authorizationStatus != .authorizedAlways {
-            requestPermission()
-            try? await Task.sleep(for: .milliseconds(500))
-            guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
-                return nil
-            }
-        }
+        guard await ensureAuthorized() else { return nil }
 
         let deadline = Date().addingTimeInterval(timeout)
         var delay: Duration = .seconds(2)
@@ -53,6 +48,46 @@ class LocationManager: NSObject {
             delay = min(delay * 2, .seconds(8))
         }
         return nil
+    }
+
+    /// Ensure we hold when-in-use authorization. When the status is undetermined, prompt and
+    /// await the user's actual decision via the delegate callback rather than guessing after a
+    /// fixed delay.
+    private func ensureAuthorized() async -> Bool {
+        switch authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            return true
+        case .notDetermined:
+            let status = await awaitAuthorizationDecision()
+            return status == .authorizedWhenInUse || status == .authorizedAlways
+        default: // .denied, .restricted — no dialog will appear; do not wait.
+            return false
+        }
+    }
+
+    /// Prompt for authorization and suspend until `locationManagerDidChangeAuthorization` reports the
+    /// user's decision. A safety timeout resumes with the current status so a stuck dialog cannot hang.
+    private func awaitAuthorizationDecision() async -> CLAuthorizationStatus {
+        let timeoutTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(60))
+            guard !Task.isCancelled else { return }
+            self.resumeAuthorizationContinuations(with: self.authorizationStatus)
+        }
+        let status = await withCheckedContinuation { continuation in
+            authorizationContinuations.append(continuation)
+            manager.requestWhenInUseAuthorization()
+        }
+        timeoutTask.cancel()
+        return status
+    }
+
+    /// Drain and resume all pending authorization continuations exactly once.
+    private func resumeAuthorizationContinuations(with status: CLAuthorizationStatus) {
+        let pending = authorizationContinuations
+        authorizationContinuations = []
+        for continuation in pending {
+            continuation.resume(returning: status)
+        }
     }
 }
 
@@ -82,6 +117,7 @@ extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
             self.authorizationStatus = manager.authorizationStatus
+            self.resumeAuthorizationContinuations(with: manager.authorizationStatus)
         }
     }
 }
