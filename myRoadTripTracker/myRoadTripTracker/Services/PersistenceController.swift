@@ -259,6 +259,42 @@ final class PersistenceController {
         }
     }
 
+    /// Leave a shared trip you joined as a participant. Removes ONLY your own CKShare participant
+    /// (never if you are the owner), then lets NSPersistentCloudKitContainer purge the local mirror.
+    /// Runs on a background context: persistUpdatedShare can block >10s and would trip the iOS
+    /// watchdog (0x8BADF00D) on the main thread.
+    func leaveSharedTrip(_ trip: Trip) async throws {
+        let objectID = trip.objectID
+        guard let store = privatePersistentStore else {
+            throw NSError(domain: "PersistenceController", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."])
+        }
+        let container = persistentContainer
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let bg = container.newBackgroundContext()
+            bg.perform {
+                do {
+                    guard (try? bg.existingObject(with: objectID)) as? Trip != nil else {
+                        continuation.resume(); return                // already gone
+                    }
+                    guard let share = (try? container.fetchShares(matching: [objectID]))?[objectID] else {
+                        continuation.resume(); return                // not shared — nothing to leave
+                    }
+                    guard let me = share.currentUserParticipant, me.role != .owner else {
+                        continuation.resume(); return                // owner / not a participant — never leave
+                    }
+                    share.removeParticipant(me)
+                    container.persistUpdatedShare(share, in: store) { _, error in
+                        if let error { continuation.resume(throwing: error) }
+                        else { continuation.resume() }
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     /// Check if the current user owns this trip (i.e., it lives in the private store).
     func isOwner(of trip: Trip) -> Bool {
         guard let store = privatePersistentStore else { return true }
