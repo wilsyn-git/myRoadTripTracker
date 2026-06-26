@@ -25,10 +25,6 @@ class LocationManager: NSObject {
         authorizationStatus = manager.authorizationStatus
     }
 
-    func requestPermission() {
-        manager.requestWhenInUseAuthorization()
-    }
-
     /// Request a location fix, retrying over the given duration before giving up.
     func requestCurrentLocation(timeout: TimeInterval = 30) async -> CLLocation? {
         guard await ensureAuthorized() else { return nil }

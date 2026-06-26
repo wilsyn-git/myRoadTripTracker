@@ -227,10 +227,13 @@ final class PersistenceController {
     /// Accept a share invitation and import it into the shared store.
     func acceptShare(metadata: CKShare.Metadata) {
         guard let store = sharedPersistentStore else {
-            // Shared store not loaded yet — queue and process once it is ready, rather than
-            // surfacing a user-blaming "restart the app" error.
+            // Shared store not loaded yet. Hold the invitation and tell the user (gently) to retry.
+            // This is recoverable — reopening the share link re-runs acceptance once the store is up —
+            // and avoids both the old user-blaming "restart the app" error and a silent no-op drop.
+            // Note: the end-of-init drain is belt-and-suspenders; the realistic recovery is the retry.
             pendingShareMetadata.append(metadata)
-            logger.info("Shared store not ready; queued share invitation for later acceptance.")
+            shareAcceptanceError = "Still preparing your data — please open the trip link again in a moment."
+            logger.info("Shared store not ready; queued share invitation and prompted the user to retry.")
             return
         }
         persistentContainer.acceptShareInvitations(
