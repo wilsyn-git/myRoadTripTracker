@@ -17,6 +17,7 @@ struct TripDetailView: View {
     @State private var showingSharingSheet = false
     @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
+    let onLeave: (String) -> Void
     @State private var showingNamePrompt = false
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
@@ -182,7 +183,8 @@ struct TripDetailView: View {
             ParticipantsView(
                 trip: trip,
                 isOwner: isOwner,
-                currentUserID: cloudKitUserID
+                currentUserID: cloudKitUserID,
+                onLeave: onLeave
             )
         }
         .sheet(isPresented: $showingMapView) {

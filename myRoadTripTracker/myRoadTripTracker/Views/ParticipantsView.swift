@@ -5,8 +5,11 @@ struct ParticipantsView: View {
     @ObservedObject var trip: Trip
     let isOwner: Bool
     let currentUserID: String
+    let onLeave: (String) -> Void
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(PersistenceController.self) private var persistenceController
+    @State private var leaveError: String?
 
     var body: some View {
         NavigationStack {
@@ -37,7 +40,7 @@ struct ParticipantsView: View {
                         }
                         if !isOwner && participant.cloudKitUserID == currentUserID {
                             Button("Leave", role: .destructive) {
-                                leaveTrip(participant)
+                                leaveTrip()
                             }
                         }
                     }
@@ -59,6 +62,19 @@ struct ParticipantsView: View {
                     }
                 }
             }
+            .alert(
+                "Couldn't Leave",
+                isPresented: Binding(
+                    get: { leaveError != nil },
+                    set: { if !$0 { leaveError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { leaveError = nil }
+            } message: {
+                if let leaveError {
+                    Text(leaveError)
+                }
+            }
         }
     }
 
@@ -67,8 +83,16 @@ struct ParticipantsView: View {
         viewContext.save(contextInfo: "removeParticipant")
     }
 
-    private func leaveTrip(_ participant: TripParticipant) {
-        removeParticipant(participant)
-        dismiss()
+    private func leaveTrip() {
+        let name = trip.name
+        Task {
+            do {
+                try await persistenceController.leaveSharedTrip(trip)
+                dismiss()
+                onLeave(name)
+            } catch {
+                leaveError = "Couldn't leave the trip: \(error.localizedDescription)"
+            }
+        }
     }
 }
