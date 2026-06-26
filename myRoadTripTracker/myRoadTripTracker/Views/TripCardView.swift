@@ -4,31 +4,56 @@ import CoreData
 struct TripCardView: View {
     @ObservedObject var trip: Trip
 
-    private var sightings: [PlateSighting] { trip.plateSightingsArray }
-
     private static let usCodes = Set(Location.usStates.map(\.code))
-    private var usSeenCount: Int { sightings.filter { Self.usCodes.contains($0.locationCode) }.count }
-    private var usTotalCount: Int { Location.usStates.count }
-    private var usProgress: Double {
-        usTotalCount > 0 ? Double(usSeenCount) / Double(usTotalCount) : 0
-    }
-
     private static let caCodes = Set(Location.canadaLocations.map(\.code))
-    private var caSeenCount: Int { sightings.filter { Self.caCodes.contains($0.locationCode) }.count }
-    private var caTotalCount: Int { Location.canadaLocations.count }
-    private var caProgress: Double {
-        caTotalCount > 0 ? Double(caSeenCount) / Double(caTotalCount) : 0
+    private static let usTotalCount = Location.usStates.count
+    private static let caTotalCount = Location.canadaLocations.count
+
+    private struct CardData {
+        var usSeenCount = 0
+        var caSeenCount = 0
+        var totalObservationCount = 0
+        var newObservationCount = 0
+        var participantCount = 0
+        var recentSightings: [PlateSighting] = []
     }
 
-    private var isShared: Bool { trip.participantsArray.count > 1 }
+    /// Compute every derived value the card needs in a single pass, reading each Core Data set
+    /// once. Counts read the sets directly (order is irrelevant); only `recentSightings` sorts.
+    /// Bound once at the top of `body`, so a render does the sort work at most once.
+    private var cardData: CardData {
+        var data = CardData()
 
-    private var observations: [ObservationEntry] { trip.observationEntriesArray }
-    private var totalObservationCount: Int { observations.count }
-    private var newObservationCount: Int {
-        guard let tripID = trip.tripID?.uuidString else { return totalObservationCount }
+        let sightingsSet = (trip.plateSightings as? Set<PlateSighting>) ?? []
+        for sighting in sightingsSet {
+            let code = sighting.locationCode
+            if Self.usCodes.contains(code) {
+                data.usSeenCount += 1
+            } else if Self.caCodes.contains(code) {
+                data.caSeenCount += 1
+            }
+        }
+        data.recentSightings = Array(
+            sightingsSet
+                .sorted { ($0.seenDate ?? .distantPast) < ($1.seenDate ?? .distantPast) }
+                .suffix(5)
+                .reversed()
+        )
+
+        let observationsSet = (trip.observationEntries as? Set<ObservationEntry>) ?? []
+        data.totalObservationCount = observationsSet.count
+        data.newObservationCount = unseenObservationCount(in: observationsSet)
+
+        data.participantCount = (trip.participants as? Set<TripParticipant>)?.count ?? 0
+
+        return data
+    }
+
+    private func unseenObservationCount(in observations: Set<ObservationEntry>) -> Int {
+        guard let tripID = trip.tripID?.uuidString else { return observations.count }
         let key = "lastViewedObservations_\(tripID)"
         guard let lastViewed = UserDefaults.standard.object(forKey: key) as? Date else {
-            return totalObservationCount
+            return observations.count
         }
         return observations.filter { ($0.createdDate ?? .distantPast) > lastViewed }.count
     }
@@ -43,16 +68,15 @@ struct TripCardView: View {
         return generated > lastViewed
     }
 
-    private var recentSightings: [PlateSighting] {
-        Array(sightings.suffix(5).reversed())
-    }
-
     private var cardColor: Color {
         trip.isClosed ? Color(white: 0.38) : Color(red: 0.2, green: 0.65, blue: 0.35)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        let data = cardData
+        let unseenRecap = hasUnseenRecap
+
+        return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(trip.name)
                     .font(.title3)
@@ -71,16 +95,16 @@ struct TripCardView: View {
 
                     Spacer()
 
-                    if totalObservationCount > 0 {
+                    if data.totalObservationCount > 0 {
                         HStack(spacing: 2) {
                             Image(systemName: "text.bubble.fill")
                                 .font(.caption2)
-                            Text("\(totalObservationCount)")
+                            Text("\(data.totalObservationCount)")
                                 .font(.caption2)
                                 .fontWeight(.medium)
                         }
                         .overlay(alignment: .topTrailing) {
-                            if newObservationCount > 0 {
+                            if data.newObservationCount > 0 {
                                 Circle()
                                     .fill(.orange)
                                     .frame(width: 7, height: 7)
@@ -89,18 +113,18 @@ struct TripCardView: View {
                         }
                     }
 
-                    if hasUnseenRecap {
+                    if unseenRecap {
                         Image(systemName: "sparkles")
                             .font(.caption2)
                             .foregroundStyle(.yellow)
                             .accessibilityLabel("New recap available")
                     }
 
-                    if isShared {
+                    if data.participantCount > 1 {
                         Image(systemName: "person.2.fill")
                             .font(.caption2)
                             .accessibilityHidden(true)
-                        Text("\(trip.participantsArray.count)")
+                        Text("\(data.participantCount)")
                             .font(.caption2)
                     }
                 }
@@ -110,9 +134,9 @@ struct TripCardView: View {
 
             Spacer()
 
-            if !recentSightings.isEmpty {
+            if !data.recentSightings.isEmpty {
                 HStack(spacing: -4) {
-                    ForEach(recentSightings, id: \.objectID) { sighting in
+                    ForEach(data.recentSightings, id: \.objectID) { sighting in
                         Image(sighting.flagImageName)
                             .resizable()
                             .scaledToFit()
@@ -131,12 +155,12 @@ struct TripCardView: View {
             Spacer()
 
             DualProgressRingView(
-                usProgress: usProgress,
-                usSeenCount: usSeenCount,
-                usTotalCount: usTotalCount,
-                caProgress: caProgress,
-                caSeenCount: caSeenCount,
-                caTotalCount: caTotalCount
+                usProgress: Self.usTotalCount > 0 ? Double(data.usSeenCount) / Double(Self.usTotalCount) : 0,
+                usSeenCount: data.usSeenCount,
+                usTotalCount: Self.usTotalCount,
+                caProgress: Self.caTotalCount > 0 ? Double(data.caSeenCount) / Double(Self.caTotalCount) : 0,
+                caSeenCount: data.caSeenCount,
+                caTotalCount: Self.caTotalCount
             )
         }
         .foregroundStyle(.white)
@@ -145,6 +169,6 @@ struct TripCardView: View {
         .aspectRatio(0.85, contentMode: .fit)
         .background(cardColor.gradient, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(trip.name), \(usSeenCount) of \(usTotalCount) US plates, \(caSeenCount) of \(caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")\(hasUnseenRecap ? ", new recap available" : "")")
+        .accessibilityLabel("\(trip.name), \(data.usSeenCount) of \(Self.usTotalCount) US plates, \(data.caSeenCount) of \(Self.caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")\(unseenRecap ? ", new recap available" : "")")
     }
 }
