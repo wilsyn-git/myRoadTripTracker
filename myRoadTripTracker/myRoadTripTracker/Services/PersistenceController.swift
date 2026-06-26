@@ -1,5 +1,5 @@
 import CloudKit
-import CoreData
+@preconcurrency import CoreData
 import os.log
 import SwiftUI
 
@@ -273,23 +273,19 @@ final class PersistenceController {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let bg = container.newBackgroundContext()
             bg.perform {
-                do {
-                    guard (try? bg.existingObject(with: objectID)) as? Trip != nil else {
-                        continuation.resume(); return                // already gone
-                    }
-                    guard let share = (try? container.fetchShares(matching: [objectID]))?[objectID] else {
-                        continuation.resume(); return                // not shared — nothing to leave
-                    }
-                    guard let me = share.currentUserParticipant, me.role != .owner else {
-                        continuation.resume(); return                // owner / not a participant — never leave
-                    }
-                    share.removeParticipant(me)
-                    container.persistUpdatedShare(share, in: store) { _, error in
-                        if let error { continuation.resume(throwing: error) }
-                        else { continuation.resume() }
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
+                guard (try? bg.existingObject(with: objectID)) as? Trip != nil else {
+                    continuation.resume(); return                // already gone
+                }
+                guard let share = (try? container.fetchShares(matching: [objectID]))?[objectID] else {
+                    continuation.resume(); return                // not shared — nothing to leave
+                }
+                guard let me = share.currentUserParticipant, me.role != .owner else {
+                    continuation.resume(); return                // owner / not a participant — never leave
+                }
+                share.removeParticipant(me)
+                container.persistUpdatedShare(share, in: store) { _, error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume() }
                 }
             }
         }
