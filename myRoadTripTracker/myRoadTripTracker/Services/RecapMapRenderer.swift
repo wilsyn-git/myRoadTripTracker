@@ -8,6 +8,11 @@ enum RecapMapRenderer {
     static func snapshot(for coordinates: [CLLocationCoordinate2D], size: CGSize) async -> UIImage? {
         guard !coordinates.isEmpty else { return nil }
 
+        let cacheKey = RecapMapCache.key(for: coordinates, size: size)
+        if let cached = RecapMapCache.image(for: cacheKey) {
+            return cached
+        }
+
         let options = MKMapSnapshotter.Options()
         options.region = region(for: coordinates)
         options.size = size
@@ -16,7 +21,9 @@ enum RecapMapRenderer {
         let snapshotter = MKMapSnapshotter(options: options)
         do {
             let snapshot = try await snapshotter.start()
-            return draw(coords: coordinates, on: snapshot, size: size)
+            let image = draw(coords: coordinates, on: snapshot, size: size)
+            RecapMapCache.store(image, for: cacheKey)
+            return image
         } catch {
             #if DEBUG
             print("[RecapMapRenderer] snapshot failed: \(error)")
