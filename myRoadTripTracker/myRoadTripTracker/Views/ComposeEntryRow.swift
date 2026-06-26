@@ -133,6 +133,8 @@ struct ComposeEntryRow: View {
         do {
             try viewContext.trySave(contextInfo: "addObservation")
         } catch {
+            // Remove the just-inserted entry so a failed save doesn't poison every later save.
+            viewContext.delete(entry)
             let nsError = error as NSError
             saveError = "[\(nsError.domain) \(nsError.code)] \(nsError.localizedDescription)"
             return
