@@ -23,6 +23,7 @@ final class PersistenceController {
     private var _sharedPersistentStore: NSPersistentStore?
     private var remoteChangeObserver: Any?
     private var lastHistoryToken: NSPersistentHistoryToken?
+    private var pendingShareMetadata: [CKShare.Metadata] = []
     var shareAcceptanceError: String?
     /// Non-nil if the database failed to initialize. Observed by the UI to show an error screen.
     var setupError: String?
@@ -155,6 +156,9 @@ final class PersistenceController {
                 self?.processRemoteChanges()
             }
         }
+
+        // Process any share invitations queued before stores finished loading.
+        drainPendingShares()
     }
 
     /// Fetch persistent history since the last token and merge changes into the view context.
@@ -223,7 +227,10 @@ final class PersistenceController {
     /// Accept a share invitation and import it into the shared store.
     func acceptShare(metadata: CKShare.Metadata) {
         guard let store = sharedPersistentStore else {
-            shareAcceptanceError = "Unable to accept share: storage is not ready. Please restart the app and try again."
+            // Shared store not loaded yet — queue and process once it is ready, rather than
+            // surfacing a user-blaming "restart the app" error.
+            pendingShareMetadata.append(metadata)
+            logger.info("Shared store not ready; queued share invitation for later acceptance.")
             return
         }
         persistentContainer.acceptShareInvitations(
@@ -236,6 +243,16 @@ final class PersistenceController {
                     self?.shareAcceptanceError = "Failed to join shared trip: \(message)"
                 }
             }
+        }
+    }
+
+    /// Process any share invitations that were queued before the shared store finished loading.
+    private func drainPendingShares() {
+        guard sharedPersistentStore != nil, !pendingShareMetadata.isEmpty else { return }
+        let queued = pendingShareMetadata
+        pendingShareMetadata = []
+        for metadata in queued {
+            acceptShare(metadata: metadata)
         }
     }
 
