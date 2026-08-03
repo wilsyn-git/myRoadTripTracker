@@ -269,7 +269,7 @@
 				CODE_SIGN_ENTITLEMENTS = myRoadTripTracker/Resources/myRoadTripTracker.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 57;
+				CURRENT_PROJECT_VERSION = 61;
 				DEVELOPMENT_TEAM = Y4D6SPW6PL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -312,7 +312,7 @@
 				CODE_SIGN_ENTITLEMENTS = myRoadTripTracker/Resources/myRoadTripTracker.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 57;
+				CURRENT_PROJECT_VERSION = 61;
 				DEVELOPMENT_TEAM = Y4D6SPW6PL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
