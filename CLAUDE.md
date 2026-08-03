@@ -30,6 +30,23 @@ There are no unit-test or UI-test targets. Do not invent `xcodebuild test` comma
 
 CloudKit schema must be deployed to **production** in the CloudKit Dashboard before any TestFlight/App Store build can sync — development and production are separate environments.
 
+## Shipping to TestFlight
+
+Uploads run through the `iosPush` CLI, **from `myRoadTripTracker/` — not the repo root**, since the
+`.xcodeproj` sits one level down and the CLI resolves both the project and the build number relative
+to its working directory:
+
+```bash
+cd myRoadTripTracker
+iosPush --dry-run   # prints resolved config, uploads nothing
+iosPush
+```
+
+Afterwards, commit the build bump `agvtool` wrote into `project.pbxproj` (`git add -u`,
+`chore: bump build to N`).
+
+Full process, config-file layout, and failure triage: **[docs/releaseProcess.md](docs/releaseProcess.md)**.
+
 ## Architecture (the part you can't infer from `ls`)
 
 The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** setup, migrated from an earlier SwiftData implementation. The two-store split is what makes collaborative sharing work.
