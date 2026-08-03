@@ -184,7 +184,7 @@ struct ContentView: View {
     }
 
     private func addTrip() {
-        let newTrip = Trip(context: viewContext)
+        let newTrip = Trip(context: viewContext, name: "New Trip")
         if let store = persistenceController.privatePersistentStore {
             viewContext.assign(newTrip, to: store)
         }

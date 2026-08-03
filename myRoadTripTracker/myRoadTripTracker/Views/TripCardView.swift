@@ -90,8 +90,11 @@ struct TripCardView: View {
                             .font(.caption)
                             .accessibilityHidden(true)
                     }
-                    Text(trip.createdDate ?? Date(), style: .date)
-                        .font(.caption)
+                    // No fallback to `Date()` — an unknown date must not render as today.
+                    if let createdDate = trip.createdDate {
+                        Text(createdDate, style: .date)
+                            .font(.caption)
+                    }
 
                     Spacer()
 

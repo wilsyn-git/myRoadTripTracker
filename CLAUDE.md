@@ -19,9 +19,12 @@ Open `myRoadTripTracker/myRoadTripTracker.xcodeproj` in Xcode. There is no `Pack
 # Build (CLI; useful for verifying compilation without launching the simulator)
 xcodebuild -project myRoadTripTracker/myRoadTripTracker.xcodeproj \
            -scheme myRoadTripTracker \
-           -destination 'platform=iOS Simulator,name=iPhone 16' \
+           -destination 'platform=iOS Simulator,name=iPhone 17' \
            build
 ```
+
+If that destination is gone, run `xcodebuild -showdestinations -project ... -scheme myRoadTripTracker`
+and pick a current one rather than guessing — the installed simulator set moves with Xcode updates.
 
 There are no unit-test or UI-test targets. Do not invent `xcodebuild test` commands or pretend a test suite exists. If a change calls for verification, build + run on a real device or simulator with iCloud signed in (CloudKit sharing requires real iCloud accounts to fully exercise).
 

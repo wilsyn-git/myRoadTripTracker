@@ -14,9 +14,12 @@ struct ObservationEntryRow: View {
                     .font(.caption)
                     .fontWeight(.semibold)
                 Spacer()
-                Text(entry.createdDate ?? Date(), style: .time)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                // No fallback to `Date()` — an unknown time must not render as now.
+                if let createdDate = entry.createdDate {
+                    Text(createdDate, style: .time)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             if !entry.text.isEmpty {
                 Text(entry.text)

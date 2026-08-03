@@ -157,8 +157,59 @@ final class PersistenceController {
             }
         }
 
+        // Repair trips created before `Trip(context:)` was fixed to run the convenience initializer.
+        backfillTripMetadata()
+
         // Process any share invitations queued before stores finished loading.
         drainPendingShares()
+    }
+
+    /// Repairs trips saved with a nil `createdDate` / `tripID`.
+    ///
+    /// Trips created before the `Trip(context:)` initializer fix silently skipped the convenience
+    /// initializer, so neither field was ever written. `createdDate` is reconstructed from the trip's
+    /// earliest child record — usually the first plate sighting — which is the closest thing to a real
+    /// start date we still have. Trips with no children keep a nil date rather than being given a
+    /// fabricated one; they self-heal on a later launch once they gain their first sighting or note.
+    ///
+    /// Scoped to the private store: we can only safely write to trips we own.
+    private func backfillTripMetadata() {
+        guard let privateStore = _privatePersistentStore else { return }
+
+        let request = Trip.fetchRequest()
+        request.predicate = NSPredicate(format: "createdDate == nil OR tripID == nil")
+        request.affectedStores = [privateStore]
+
+        let trips: [Trip]
+        do {
+            trips = try viewContext.fetch(request)
+        } catch {
+            logger.error("Trip metadata backfill fetch failed: \(error.localizedDescription)")
+            return
+        }
+        guard !trips.isEmpty else { return }
+
+        var repairedDates = 0
+        for trip in trips {
+            if trip.tripID == nil {
+                trip.tripID = UUID()
+            }
+            if trip.createdDate == nil, let earliest = Self.earliestActivityDate(in: trip) {
+                trip.createdDate = earliest
+                repairedDates += 1
+            }
+        }
+
+        guard viewContext.hasChanges else { return }
+        viewContext.save(contextInfo: "backfillTripMetadata")
+        logger.info("Backfilled metadata for \(trips.count) trip(s); \(repairedDates) date(s) recovered.")
+    }
+
+    /// The earliest timestamp across a trip's plate sightings and observation entries, if any.
+    private static func earliestActivityDate(in trip: Trip) -> Date? {
+        let sightingDates = trip.plateSightingsArray.compactMap(\.seenDate)
+        let observationDates = trip.observationEntriesArray.compactMap(\.createdDate)
+        return (sightingDates + observationDates).min()
     }
 
     /// Fetch persistent history since the last token and merge changes into the view context.
