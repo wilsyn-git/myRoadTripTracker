@@ -81,21 +81,18 @@ Project uses `PBXFileSystemSynchronizedRootGroup` (Xcode 16+ auto file discovery
 - Map: pins only, no lines/routes/animation.
 - If location denied: plates can still be marked with coords `0,0`.
 
-## In-flight (uncommitted on `main`, 2026-04-25)
+## Trip list grid (landed in 17a1f31, 2026-04-25)
 
-Working tree has changes to `ContentView.swift`, `TripRowView.swift`, and `project.pbxproj`:
+Trip list redesign in `ContentView.swift` and `TripCardView.swift`:
 
 - Trip list: `List` → `LazyVGrid` of `TripCardView` (renamed from `TripRowView`).
-- Cards have a progress ring (`ProgressRingView`), recent-flag strip, and color-coded background (closed = grey, active = green).
+- Cards have a progress ring (`DualProgressRingView`), recent-flag strip, and color-coded background (closed = grey, active = green).
 - Swipe-to-delete replaced with long-press context menu + confirmation alert.
 - Sort: closed trips pushed to the bottom (sort by `isClosed` asc, then `createdDate` desc).
 
-Not yet committed.
-
 ## Known limitations / not started
 
-- Universal Links (associated domains + AASA on a web server) — share URL is sent raw, recipient needs the app installed.
-- Sync status indicators (subtle UI feedback for queued/syncing/synced).
-- Privacy policy page (needed for App Store submission).
-- Location permission deferral to first plate tap (currently requested earlier than the privacy spec wants).
+- Universal Links (associated domains + AASA on a web server) — share URL is sent raw, recipient needs the app installed. Tracked in #6.
+- Sync status indicators (subtle UI feedback for queued/syncing/synced). Tracked in #7.
+- Privacy policy page (needed for App Store submission). Tracked in #8.
 - v2: Trip PDF export, GDPR data purge for departed participants, ownership transfer, photos, push notifications.
