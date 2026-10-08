@@ -68,7 +68,7 @@ builds 58–60 drifted this way before being caught.
 | `~/.appstoreconnect/config` | no — local secret | API key credentials. Never edit or commit. If `iosPush` reports it missing, the user must create it; do not guess values. |
 
 Both projects here share team `Y4D6SPW6PL` with automatic signing and no bundle-specific
-provisioning profiles, so `ExportOptions.plist` is portable between this repo and `~/code/iosJournal`.
+provisioning profiles, so `ExportOptions.plist` is portable between this repo and `~/code/apple/iosJournal`.
 
 ## When it fails
 

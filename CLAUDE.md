@@ -113,5 +113,5 @@ The product spec is privacy-forward; these constraints come up in design discuss
 
 - `ARCHITECTURE.md` is a hand-maintained context doc (not generated). It lags the code occasionally — trust source over docs and update the doc when you notice drift.
 - Work items live in GitHub Issues — `gh issue list`; `/next` applies.
-- Auto-memory at `~/.claude/projects/-Users-sam-code-myRoadTripTracker/memory/` contains additional CloudKit/Xcode lessons; consult it when debugging sync or project-file issues.
+- Auto-memory at `~/.claude/projects/-Users-sam-code-apple-myRoadTripTracker/memory/` contains additional CloudKit/Xcode lessons; consult it when debugging sync or project-file issues.
 - No Cursor rules, no Copilot instructions, no CI in this repo.
