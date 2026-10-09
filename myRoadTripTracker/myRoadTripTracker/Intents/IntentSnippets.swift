@@ -102,11 +102,12 @@ struct CountCard: View {
 
 struct MarkCard: View {
     let location: Location
+    let number: Int?
     let trip: TripSnapshot
 
     var body: some View {
         let sighting = trip.sighting(of: location.code)
-        SnippetShell(title: trip.name, trailing: "No. \(trip.seenCodes.count)", isClosed: trip.isClosed) {
+        SnippetShell(title: trip.name, trailing: number.map { "No. \($0)" } ?? "Already seen", isClosed: trip.isClosed) {
             HStack(spacing: 14) {
                 Flag(assetName: location.flagImageName, width: 64)
                 VStack(alignment: .leading, spacing: 2) {
@@ -156,13 +157,19 @@ struct SeenCard: View {
 struct PlatesLeftCard: View {
     let trip: TripSnapshot
 
-    private let columns = [GridItem(.adaptive(minimum: 38), spacing: 6)]
+    private let columns = [GridItem(.adaptive(minimum: 30), spacing: 4)]
 
     var body: some View {
         let unseen = trip.unseen
         SnippetShell(title: trip.name, trailing: unseen.isEmpty ? "" : "\(unseen.count) left", isClosed: trip.isClosed) {
             if unseen.isEmpty {
                 Label("Every plate spotted!", systemImage: "party.popper.fill").font(.title3.weight(.bold))
+            } else if trip.sightings.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("All \(Location.allLocations.count) to go").font(.title3.weight(.bold))
+                    Text("\(TripSnapshot.usCodes.count) US · \(TripSnapshot.caCodes.count) Canada")
+                        .font(.subheadline).opacity(0.85)
+                }
             } else {
                 section("US", unseen.filter { TripSnapshot.usCodes.contains($0.code) })
                 section("Canada", unseen.filter { TripSnapshot.caCodes.contains($0.code) })
@@ -175,16 +182,17 @@ struct PlatesLeftCard: View {
         if !locations.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.caption.weight(.bold)).opacity(0.85)
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
                     ForEach(locations) { location in
                         Text(location.code)
-                            .font(.caption.weight(.bold).monospaced())
-                            .padding(.vertical, 4)
+                            .font(.caption2.weight(.bold).monospaced())
+                            .padding(.vertical, 3)
                             .frame(maxWidth: .infinity)
                             .background(.white.opacity(0.18), in: .rect(cornerRadius: 6))
                             .accessibilityLabel(location.name)
                     }
                 }
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             }
         }
     }
@@ -196,7 +204,7 @@ struct TopSpotterCard: View {
     var body: some View {
         let tally = Array(trip.tally.prefix(6))
         let topCount = tally.first(where: { !$0.isUnknown })?.count
-        SnippetShell(title: trip.name, trailing: "\(trip.sightings.count) plates", isClosed: trip.isClosed) {
+        SnippetShell(title: trip.name, trailing: trip.sightings.count == 1 ? "1 plate" : "\(trip.sightings.count) plates", isClosed: trip.isClosed) {
             if tally.isEmpty {
                 Text("No plates yet").font(.title3.weight(.bold))
             } else {

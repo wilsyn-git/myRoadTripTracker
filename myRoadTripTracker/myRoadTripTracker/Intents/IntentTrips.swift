@@ -92,8 +92,7 @@ enum IntentTrips {
 
     /// The name a tap would credit: your display name on this trip, else the
     /// default display name, else "Me". Never creates a `TripParticipant`.
-    static func speakerName(for trip: Trip) async -> String {
-        let userID = await CloudKitUserHelper.currentUserID()
+    static func speakerName(for trip: Trip, userID: String) -> String {
         if let participant = trip.participantsArray.first(where: { $0.cloudKitUserID == userID }),
            let name = IntentAnswers.cleanName(participant.displayName) {
             return name
@@ -108,8 +107,16 @@ enum IntentTrips {
         let location = region.location
         if let existing = snapshot(of: trip).sighting(of: location.code) { return .alreadySeen(existing) }
 
-        let name = await speakerName(for: trip)
+        // The user-ID lookup runs while we wait on GPS.
+        let userIDLookup = Task { await CloudKitUserHelper.currentUserID() }
         let fix = await LocationManager().requestFixIfAuthorized(timeout: .seconds(3))
+        let userID = await userIDLookup.value
+        let name = speakerName(for: trip, userID: userID)
+
+        // The trip may have been deleted, closed or made read-only while we waited.
+        guard !trip.isDeleted, trip.managedObjectContext != nil else { throw IntentFailure.tripNotFound }
+        guard !trip.isClosed else { throw IntentFailure.tripClosed(trip.name) }
+        guard PersistenceController.shared.canEdit(trip) else { throw IntentFailure.cannotEdit(trip.name) }
 
         // A tap or a sync may have added it while we waited.
         if let existing = snapshot(of: trip).sighting(of: location.code) { return .alreadySeen(existing) }

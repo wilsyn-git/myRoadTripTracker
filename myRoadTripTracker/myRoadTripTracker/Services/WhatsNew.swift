@@ -28,7 +28,7 @@ enum WhatsNew {
         Announcement(id: .siri, title: "Ask Siri", systemImage: "mic.fill", lines: [
             .init(text: "Log plates and check your trip without opening the app — handy from the passenger seat or on CarPlay."),
             .init(text: "Say \u{201C}We saw Maine in TripSpotter\u{201D}", isKey: true),
-            .init(text: "Or ask \u{201C}How many states have we seen in TripSpotter?\u{201D} The first time, Siri asks to turn on TripSpotter's shortcuts. Say yes."),
+            .init(text: "Or ask \u{201C}How many states have we seen in TripSpotter?\u{201D} The first time, Siri asks to turn on TripSpotter\u{2019}s shortcuts. Say yes."),
         ]),
     ]
 

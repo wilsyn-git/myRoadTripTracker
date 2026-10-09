@@ -19,11 +19,17 @@ struct MarkPlateIntent: AppIntent {
         let target = try IntentTrips.resolve(trip)
         let location = region.location
         let outcome = try await IntentTrips.markPlate(region, on: target)
-        let line = switch outcome {
-        case .added(let number): IntentAnswers.marked(location, number: number, tripName: target.name)
-        case .alreadySeen(let sighting): IntentAnswers.alreadySeen(location, sighting: sighting)
+        let line: String
+        let number: Int?
+        switch outcome {
+        case .added(let n):
+            line = IntentAnswers.marked(location, number: n, tripName: target.name)
+            number = n
+        case .alreadySeen(let sighting):
+            line = IntentAnswers.alreadySeen(location, sighting: sighting)
+            number = nil
         }
         return .result(dialog: IntentDialog(stringLiteral: line),
-                       view: MarkCard(location: location, trip: IntentTrips.snapshot(of: target)))
+                       view: MarkCard(location: location, number: number, trip: IntentTrips.snapshot(of: target)))
     }
 }

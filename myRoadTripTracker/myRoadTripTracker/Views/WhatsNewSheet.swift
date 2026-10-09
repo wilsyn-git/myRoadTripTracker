@@ -41,7 +41,8 @@ struct WhatsNewSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(24)
         }
-        .safeAreaInset(edge: .bottom) {
+        .scrollEdgeEffectStyle(.hard, for: .bottom)
+        .safeAreaBar(edge: .bottom) {
             Button {
                 dismiss()
             } label: {

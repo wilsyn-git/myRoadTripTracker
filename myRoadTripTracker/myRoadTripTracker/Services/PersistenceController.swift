@@ -242,7 +242,8 @@ final class PersistenceController {
 
     // MARK: - Export
 
-    /// Waits until CloudKit reports an export that finished after `date`, or until `timeout`.
+    /// Waits until CloudKit reports an export that started at or after `date` and has finished, or until `timeout`.
+    /// (An export already in flight when the save happened may not include the new record.)
     /// A Siri mark runs in a short background launch; this gives the new sighting a chance
     /// to upload before iOS suspends the app (spec, "Sync after a voice mark").
     func awaitExport(after date: Date, timeout: Duration) async {
@@ -257,7 +258,7 @@ final class PersistenceController {
                 guard let event = note.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                         as? NSPersistentCloudKitContainer.Event,
                       event.type == .export,
-                      let end = event.endDate, end >= date else { return }
+                      event.startDate >= date, event.endDate != nil else { return }
                 continuation.yield()
             }
         }

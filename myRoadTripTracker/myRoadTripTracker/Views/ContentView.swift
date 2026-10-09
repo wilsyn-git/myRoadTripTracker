@@ -195,11 +195,9 @@ struct ContentView: View {
             navigationPath = NavigationPath()
             navigationPath.append(objectID)
         }
-        .task {
-            TripSpotterShortcuts.updateAppShortcutParameters()
-        }
-        .onChange(of: trips.map(\.name)) { _, _ in
-            // Keeps trip-name phrases ("Who's winning Utah…") current after a create, rename or delete.
+        .task(id: trips.map(\.name)) {
+            // Keeps trip-name phrases ("Who's winning Utah…") current; debounced so a rename doesn't refresh per keystroke.
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
             TripSpotterShortcuts.updateAppShortcutParameters()
         }
     }
@@ -222,6 +220,7 @@ struct ContentView: View {
     /// else over it; otherwise it waits for the list's next appearance.
     private func presentWhatsNewIfDue() {
         guard whatsNewCard == nil, navigationPath.isEmpty,
+              IntentRoute.shared.pendingTrip == nil,
               !showingDeleteAlert, !showingLeaveAlert, leaveError == nil,
               persistenceController.shareAcceptanceError == nil else { return }
         whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
