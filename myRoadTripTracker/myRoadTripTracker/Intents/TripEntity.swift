@@ -43,6 +43,6 @@ nonisolated struct TripQuery: EntityStringQuery {
 
     @MainActor
     func suggestedEntities() async throws -> [TripEntity] {
-        try IntentTrips.allTrips().compactMap(TripEntity.init)
+        try IntentTrips.suggestedTrips().compactMap(TripEntity.init)
     }
 }

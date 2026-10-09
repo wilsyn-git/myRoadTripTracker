@@ -68,6 +68,14 @@ enum IntentTrips {
         trips.filter { !$0.isClosed }.max { lastActivity($0) < lastActivity($1) }
     }
 
+    /// The trips Siri learns by name for "…on Miami…" phrases: open ones, plus any used
+    /// in the last 30 days. Each one becomes a tile per trip shortcut in the Shortcuts app,
+    /// so old trips are left out; with no trip named, the current trip still answers.
+    static func suggestedTrips(now: Date = .now) throws -> [Trip] {
+        let cutoff = now.addingTimeInterval(-30 * 24 * 3600)
+        return try allTrips().filter { !$0.isClosed || lastActivity($0) >= cutoff }
+    }
+
     private static func lastActivity(_ trip: Trip) -> Date {
         let sightings = (trip.plateSightings as? Set<PlateSighting>) ?? []
         return sightings.compactMap(\.seenDate).max() ?? trip.createdDate ?? .distantPast
