@@ -83,6 +83,7 @@ Announces the feature once, as blobAttack's Siri card did (`blobAttack/models/wh
 - "Log plates and check your trip without opening the app — handy from the passenger seat or on CarPlay."
 - Key line (bold): Say "We saw Maine in TripSpotter"
 - "Or ask "How many states have we seen in TripSpotter?" The first time, Siri asks to turn on TripSpotter's shortcuts. Say yes."
+- "Missed it? In the Shortcuts app, open TripSpotter, tap ⓘ and turn Siri on." (Added after TestFlight 62: a "no" to Siri's first-run question isn't asked again.)
 
 **When it shows**
 

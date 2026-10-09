@@ -23,12 +23,14 @@ struct Announcement: Identifiable, Equatable {
 enum WhatsNew {
     // iOS gives an app no way to switch its own Siri shortcuts on: the first
     // request Siri recognises asks once. So the card teaches a phrase that is
-    // sure to match and says what that first question will be.
+    // sure to match and says what that first question will be. A "no" to that
+    // question isn't asked again; the only way back is the Shortcuts app.
     static let all: [Announcement] = [
         Announcement(id: .siri, title: "Ask Siri", systemImage: "mic.fill", lines: [
             .init(text: "Log plates and check your trip without opening the app — handy from the passenger seat or on CarPlay."),
             .init(text: "Say \u{201C}We saw Maine in TripSpotter\u{201D}", isKey: true),
             .init(text: "Or ask \u{201C}How many states have we seen in TripSpotter?\u{201D} The first time, Siri asks to turn on TripSpotter\u{2019}s shortcuts. Say yes."),
+            .init(text: "Missed it? In the Shortcuts app, open TripSpotter, tap \u{24D8} and turn Siri on."),
         ]),
     ]
 
