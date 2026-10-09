@@ -54,5 +54,14 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
             shortTitle: "Top Spotter",
             systemImageName: "crown"
         )
+        AppShortcut(
+            intent: OpenTripIntent(),
+            phrases: [
+                "Open my trip in \(.applicationName)",
+                "Open \(\.$trip) in \(.applicationName)",
+            ],
+            shortTitle: "Open Trip",
+            systemImageName: "car"
+        )
     }
 }

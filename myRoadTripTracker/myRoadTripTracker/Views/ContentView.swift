@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppIntents
 import CoreData
 
 struct ContentView: View {
@@ -180,6 +181,18 @@ struct ContentView: View {
         }
         .onChange(of: trips.count) { _, newCount in
             isPulsing = newCount == 0
+        }
+        .onChange(of: IntentRoute.shared.pendingTrip, initial: true) { _, _ in
+            guard let objectID = IntentRoute.shared.take() else { return }
+            navigationPath = NavigationPath()
+            navigationPath.append(objectID)
+        }
+        .task {
+            TripSpotterShortcuts.updateAppShortcutParameters()
+        }
+        .onChange(of: trips.map(\.name)) { _, _ in
+            // Keeps trip-name phrases ("Who's winning Utah…") current after a create, rename or delete.
+            TripSpotterShortcuts.updateAppShortcutParameters()
         }
     }
 
