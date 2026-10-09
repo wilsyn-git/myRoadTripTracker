@@ -8,6 +8,12 @@ struct myRoadTripTrackerApp: App {
 
     @State private var persistenceController = PersistenceController.shared
 
+    init() {
+        #if DEBUG
+        PlateRegion.assertMatchesLocations()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {

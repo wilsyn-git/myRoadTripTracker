@@ -63,9 +63,13 @@ The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** 
 
 ```
 App/         myRoadTripTrackerApp.swift, AppDelegate.swift (+SceneDelegate)
+Intents/     App Intents for Siri/Spotlight: PlateRegion, TripEntity, the six
+             intents, IntentAnswers (spoken lines), IntentSnippets (cards),
+             TripSpotterShortcuts (phrases)
 Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entities)
 Services/    PersistenceController, CoreDataHelpers, CloudKitUserHelper,
-             LocationManager, Location (63 NA regions), ImageProcessor
+             LocationManager, Location (64 NA regions), ImageProcessor,
+             IntentRoute, WhatsNew
 Views/       SwiftUI views (ContentView, TripCardView, TripDetailView,
              PlateSightings*, Observations*, CloudSharingView, ...)
 Resources/   Info.plist, .entitlements, .xcdatamodeld, Assets.xcassets,

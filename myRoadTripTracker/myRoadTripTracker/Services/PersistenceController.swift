@@ -240,6 +240,38 @@ final class PersistenceController {
         try? data.write(to: url)
     }
 
+    // MARK: - Export
+
+    /// Waits until CloudKit reports an export that started at or after `date` and has finished, or until `timeout`.
+    /// (An export already in flight when the save happened may not include the new record.)
+    /// A Siri mark runs in a short background launch; this gives the new sighting a chance
+    /// to upload before iOS suspends the app (spec, "Sync after a voice mark").
+    func awaitExport(after date: Date, timeout: Duration) async {
+        let center = NotificationCenter.default
+        var observer: NSObjectProtocol?
+        let exported = AsyncStream<Void> { continuation in
+            observer = center.addObserver(
+                forName: NSPersistentCloudKitContainer.eventChangedNotification,
+                object: persistentContainer,
+                queue: .main
+            ) { note in
+                guard let event = note.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                        as? NSPersistentCloudKitContainer.Event,
+                      event.type == .export,
+                      event.startDate >= date, event.endDate != nil else { return }
+                continuation.yield()
+            }
+        }
+        defer { if let observer { center.removeObserver(observer) } }
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { for await _ in exported { return } }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
     // MARK: - Sharing
 
     /// Share a trip. Returns the CKShare for presentation.

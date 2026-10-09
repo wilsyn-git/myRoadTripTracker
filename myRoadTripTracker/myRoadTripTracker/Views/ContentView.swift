@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppIntents
 import CoreData
 
 struct ContentView: View {
@@ -30,6 +31,7 @@ struct ContentView: View {
     @State private var showingLeaveAlert = false
     @State private var leaveError: String?
     @State private var leftTripName: String?
+    @State private var whatsNewCard: Announcement?
 
     private let columns = [
         GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
@@ -177,9 +179,26 @@ struct ContentView: View {
         .animation(.spring, value: leftTripName)
         .onAppear {
             isPulsing = trips.isEmpty
+            presentWhatsNewIfDue()
+        }
+        .onChange(of: trips.isEmpty) { _, _ in
+            presentWhatsNewIfDue()
+        }
+        .sheet(item: $whatsNewCard) { card in
+            WhatsNewSheet(announcement: card)
         }
         .onChange(of: trips.count) { _, newCount in
             isPulsing = newCount == 0
+        }
+        .onChange(of: IntentRoute.shared.pendingTrip, initial: true) { _, _ in
+            guard let objectID = IntentRoute.shared.take() else { return }
+            navigationPath = NavigationPath()
+            navigationPath.append(objectID)
+        }
+        .task(id: trips.map(\.name)) {
+            // Keeps trip-name phrases ("Who's winning Utah…") current; debounced so a rename doesn't refresh per keystroke.
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            TripSpotterShortcuts.updateAppShortcutParameters()
         }
     }
 
@@ -195,6 +214,16 @@ struct ContentView: View {
 
     private func confirmLeft(_ name: String) {
         withAnimation { leftTripName = name }
+    }
+
+    /// Shows the next what's-new card when the trip list is on screen with nothing
+    /// else over it; otherwise it waits for the list's next appearance.
+    private func presentWhatsNewIfDue() {
+        guard whatsNewCard == nil, navigationPath.isEmpty,
+              IntentRoute.shared.pendingTrip == nil,
+              !showingDeleteAlert, !showingLeaveAlert, leaveError == nil,
+              persistenceController.shareAcceptanceError == nil else { return }
+        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
     }
 
 }
