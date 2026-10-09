@@ -1,4 +1,5 @@
 import AppIntents
+import SwiftUI
 
 // The read-only trip questions. Each answers in the background, locked or not
 // (spec, "Decisions": locked phone).
@@ -11,9 +12,10 @@ struct TripCountIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let snapshot = try IntentTrips.snapshot(of: IntentTrips.resolve(trip))
-        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.count(snapshot)))
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.count(snapshot)),
+                       view: CountCard(trip: snapshot))
     }
 }
 
@@ -28,9 +30,11 @@ struct HaveWeSeenIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let snapshot = try IntentTrips.snapshot(of: IntentTrips.resolve(trip))
-        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.haveWeSeen(region.location, in: snapshot)))
+        let location = region.location
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.haveWeSeen(location, in: snapshot)),
+                       view: SeenCard(location: location, trip: snapshot))
     }
 }
 
@@ -42,9 +46,10 @@ struct PlatesLeftIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let snapshot = try IntentTrips.snapshot(of: IntentTrips.resolve(trip))
-        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.left(snapshot)))
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.left(snapshot)),
+                       view: PlatesLeftCard(trip: snapshot))
     }
 }
 
@@ -56,8 +61,9 @@ struct TopSpotterIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let snapshot = try IntentTrips.snapshot(of: IntentTrips.resolve(trip))
-        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.topSpotter(snapshot)))
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.topSpotter(snapshot)),
+                       view: TopSpotterCard(trip: snapshot))
     }
 }

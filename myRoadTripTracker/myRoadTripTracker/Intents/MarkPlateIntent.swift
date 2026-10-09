@@ -1,4 +1,5 @@
 import AppIntents
+import SwiftUI
 
 /// "We saw Maine in TripSpotter." The only intent that writes. Runs locked
 /// (spec, "Decisions"): plate names are low-stakes.
@@ -14,7 +15,7 @@ struct MarkPlateIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         let target = try IntentTrips.resolve(trip)
         let location = region.location
         let outcome = try await IntentTrips.markPlate(region, on: target)
@@ -22,6 +23,7 @@ struct MarkPlateIntent: AppIntent {
         case .added(let number): IntentAnswers.marked(location, number: number, tripName: target.name)
         case .alreadySeen(let sighting): IntentAnswers.alreadySeen(location, sighting: sighting)
         }
-        return .result(dialog: IntentDialog(stringLiteral: line))
+        return .result(dialog: IntentDialog(stringLiteral: line),
+                       view: MarkCard(location: location, trip: IntentTrips.snapshot(of: target)))
     }
 }
