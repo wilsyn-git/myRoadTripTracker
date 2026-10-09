@@ -6,7 +6,7 @@ import SwiftUI
 
 struct TripCountIntent: AppIntent {
     static let title: LocalizedStringResource = "Trip Count"
-    static let description = IntentDescription("How many states and Canadian plates you've seen on a trip.")
+    static let description = IntentDescription("Counts the US states and Canadian provinces whose license plates you've spotted on a road trip.")
 
     @Parameter(title: "Trip")
     var trip: TripEntity?
@@ -21,9 +21,9 @@ struct TripCountIntent: AppIntent {
 
 struct HaveWeSeenIntent: AppIntent {
     static let title: LocalizedStringResource = "Have We Seen a Plate"
-    static let description = IntentDescription("Whether a state or province is already ticked off, and who spotted it.")
+    static let description = IntentDescription("Checks whether you've already spotted a license plate from a state or province on your road trip, and who spotted it.")
 
-    @Parameter(title: "Plate", requestValueDialog: "Which plate?")
+    @Parameter(title: "State or Province", requestValueDialog: "Which one?")
     var region: PlateRegion
 
     @Parameter(title: "Trip")
@@ -40,7 +40,7 @@ struct HaveWeSeenIntent: AppIntent {
 
 struct PlatesSeenIntent: AppIntent {
     static let title: LocalizedStringResource = "Plates Seen"
-    static let description = IntentDescription("The states and provinces you've spotted on a trip.")
+    static let description = IntentDescription("Lists the states and provinces whose license plates you've spotted on a road trip.")
 
     @Parameter(title: "Trip")
     var trip: TripEntity?
@@ -55,7 +55,7 @@ struct PlatesSeenIntent: AppIntent {
 
 struct PlatesLeftIntent: AppIntent {
     static let title: LocalizedStringResource = "Plates Left"
-    static let description = IntentDescription("The states and provinces you haven't spotted yet.")
+    static let description = IntentDescription("Lists the states and provinces whose license plates you haven't spotted yet on a road trip.")
 
     @Parameter(title: "Trip")
     var trip: TripEntity?
@@ -70,7 +70,7 @@ struct PlatesLeftIntent: AppIntent {
 
 struct TopSpotterIntent: AppIntent {
     static let title: LocalizedStringResource = "Top Spotter"
-    static let description = IntentDescription("Who has spotted the most plates on a trip.")
+    static let description = IntentDescription("Tells you who has spotted the most license plates on a road trip.")
 
     @Parameter(title: "Trip")
     var trip: TripEntity?

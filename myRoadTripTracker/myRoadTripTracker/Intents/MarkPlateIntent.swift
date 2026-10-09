@@ -4,11 +4,11 @@ import SwiftUI
 /// "We saw Maine in TripSpotter." The only intent that writes. Runs locked
 /// (spec, "Decisions"): plate names are low-stakes.
 struct MarkPlateIntent: AppIntent {
-    static let title: LocalizedStringResource = "Mark a Plate"
-    static let description = IntentDescription("Ticks off a state or province on your current trip.")
+    static let title: LocalizedStringResource = "Add a Plate"
+    static let description = IntentDescription("Adds a license plate you spotted, from a US state or Canadian province, to your current road trip.")
     static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    @Parameter(title: "Plate", requestValueDialog: "Oh! Which one?")
+    @Parameter(title: "State or Province", requestValueDialog: "Oh! Which one?")
     var region: PlateRegion
 
     @Parameter(title: "Trip")
