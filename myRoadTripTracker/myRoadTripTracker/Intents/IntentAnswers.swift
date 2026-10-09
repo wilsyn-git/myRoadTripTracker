@@ -188,6 +188,10 @@ enum IntentAnswers {
         return !stripped.isEmpty && name.localizedStandardContains(stripped)
     }
 
+    static func opening(tripName: String) -> String {
+        "Opening \(tripName)."
+    }
+
     static func marked(_ location: Location, number: Int, tripName: String) -> String {
         "Got it — \(location.name) is number \(number) on \(tripName)."
     }

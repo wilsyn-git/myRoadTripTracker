@@ -18,14 +18,16 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
                 "Spotted \(\.$region) in \(.applicationName)",
                 // No "Mark …" or "Tick off …": Siri reads them as task commands and
                 // answers itself without trying TripSpotter (seen on device, build 63).
-                "Add \(\.$region) in \(.applicationName)",
-                "Add \(\.$region) to \(.applicationName)",
-                // Two-step: Siri answers "Oh! Which one?" and takes the plate on its own,
-                // which it hears far more reliably than a plate mid-sentence.
-                "Add a plate to \(.applicationName)",
-                "Add a plate in \(.applicationName)",
+                // No "Add <plate> …" either: on device (build 67) Siri's phrase matcher
+                // rejected it, and its guess then ran Open Trip, nothing, or this intent.
+                // "We saw …" matched every time.
+                // Two-step: Siri answers "Oh! Which one?" and takes the plate on its own.
                 "We saw a plate in \(.applicationName)",
                 "We spotted a plate in \(.applicationName)",
+                // Kept (no plate value, so no Shortcuts tiles), but Siri may first ask
+                // "TripSpotter or Notes?" since "add" is also a Notes verb.
+                "Add a plate to \(.applicationName)",
+                "Add a plate in \(.applicationName)",
             ],
             shortTitle: "Add a Plate",
             systemImageName: "checkmark.circle"
