@@ -38,6 +38,21 @@ struct HaveWeSeenIntent: AppIntent {
     }
 }
 
+struct PlatesSeenIntent: AppIntent {
+    static let title: LocalizedStringResource = "Plates Seen"
+    static let description = IntentDescription("The states and provinces you've spotted on a trip.")
+
+    @Parameter(title: "Trip")
+    var trip: TripEntity?
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
+        let snapshot = try IntentTrips.snapshot(of: IntentTrips.resolve(trip))
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.seen(snapshot)),
+                       view: PlatesSeenCard(trip: snapshot))
+    }
+}
+
 struct PlatesLeftIntent: AppIntent {
     static let title: LocalizedStringResource = "Plates Left"
     static let description = IntentDescription("The states and provinces you haven't spotted yet.")

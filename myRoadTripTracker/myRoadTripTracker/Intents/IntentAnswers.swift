@@ -37,6 +37,18 @@ extension TripSnapshot {
         return Location.allLocations.filter { !seen.contains($0.code) }
     }
 
+    /// Seen plates in the grid's order: US then Canada.
+    var seen: [Location] {
+        let seen = seenCodes
+        return Location.allLocations.filter { seen.contains($0.code) }
+    }
+
+    /// Names of the most recently spotted distinct plates, newest first.
+    func recentNames(_ limit: Int) -> [String] {
+        var codes = Set<String>()
+        return sightings.reversed().filter { codes.insert($0.code).inserted }.prefix(limit).map(\.name)
+    }
+
     func sighting(of code: String) -> Sighting? {
         sightings.first { $0.code == code }
     }
@@ -67,12 +79,36 @@ extension TripSnapshot {
 enum IntentAnswers {
 
     static func count(_ trip: TripSnapshot) -> String {
+        guard let summary = seenSummary(trip) else { return "Nothing spotted on \(trip.name) yet." }
+        return "On \(trip.name) you've seen \(summary)."
+    }
+
+    /// "What have we seen": names them when there are few, else the count and the latest three.
+    static func seen(_ trip: TripSnapshot) -> String {
+        guard let summary = seenSummary(trip) else { return "Nothing spotted on \(trip.name) yet." }
+        let seen = trip.seen
+        if seen.count <= 8 { return "On \(trip.name) you've seen \(list(seen.map(\.name)))." }
+        return "On \(trip.name) you've seen \(summary) — most recently \(list(trip.recentNames(3)))."
+    }
+
+    /// "23 states and 4 from Canada", or nil when nothing has been seen.
+    private static func seenSummary(_ trip: TripSnapshot) -> String? {
         switch (trip.usSeen, trip.caSeen) {
-        case (0, 0): "Nothing spotted on \(trip.name) yet."
-        case (let us, 0): "On \(trip.name) you've seen \(states(us))."
-        case (0, let ca): "On \(trip.name) you've seen \(ca) from Canada."
-        case (let us, let ca): "On \(trip.name) you've seen \(states(us)) and \(ca) from Canada."
+        case (0, 0): nil
+        case (let us, 0): states(us)
+        case (0, let ca): "\(ca) from Canada"
+        case (let us, let ca): "\(states(us)) and \(ca) from Canada"
         }
+    }
+
+    /// Other ways people say a trip's name: "the Miami trip", "Miami trip", and
+    /// "Miami" for a trip named "Miami Trip". Never includes the name itself.
+    nonisolated static func tripSynonyms(for name: String) -> [String] {
+        var base = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if base.lowercased().hasSuffix(" trip") { base = String(base.dropLast(5)) }
+        guard !base.isEmpty else { return [] }
+        var seen = Set([name.lowercased()])
+        return [base, "\(base) trip", "the \(base) trip", "the \(base)"].filter { seen.insert($0.lowercased()).inserted }
     }
 
     static func haveWeSeen(_ location: Location, in trip: TripSnapshot, now: Date = .now) -> String {

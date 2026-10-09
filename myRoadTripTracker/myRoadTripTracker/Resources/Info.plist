@@ -6,6 +6,17 @@
 	<string>Take photos to attach to your road trip observations.</string>
 	<key>CKSharingSupported</key>
 	<true/>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Spotter</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Trip Spotter</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIBackgroundModes</key>
