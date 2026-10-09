@@ -27,7 +27,7 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
                 "We saw a plate in \(.applicationName)",
                 "We spotted a plate in \(.applicationName)",
             ],
-            shortTitle: "Mark a Plate",
+            shortTitle: "Add a Plate",
             systemImageName: "checkmark.circle"
         )
         AppShortcut(

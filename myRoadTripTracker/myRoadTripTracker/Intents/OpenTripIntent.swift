@@ -5,7 +5,7 @@ import CoreData
 /// iOS asks for that itself.
 struct OpenTripIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Trip"
-    static let description = IntentDescription("Opens a trip in TripSpotter — your current trip unless you name one.")
+    static let description = IntentDescription("Opens a road trip in TripSpotter: your current trip, unless you name one.")
     static let supportedModes: IntentModes = .foreground
 
     @Parameter(title: "Trip")
