@@ -75,6 +75,45 @@ enum IntentAnswers {
         }
     }
 
+    static func haveWeSeen(_ location: Location, in trip: TripSnapshot, now: Date = .now) -> String {
+        guard let sighting = trip.sighting(of: location.code) else {
+            return "Not yet. \(location.name)'s still out there."
+        }
+        let day = sighting.seenDate.map { " " + spokenDay($0, now: now) } ?? ""
+        if let who = cleanName(sighting.spottedBy) {
+            return "Yes — \(who) spotted \(location.name)\(day)."
+        }
+        return "Yes — \(location.name) was spotted\(day)."
+    }
+
+    static func left(_ trip: TripSnapshot) -> String {
+        let unseen = trip.unseen
+        if unseen.isEmpty { return "You've seen every plate on \(trip.name)!" }
+        if trip.sightings.isEmpty { return "All \(Location.allLocations.count) to go." }
+        if unseen.count <= 8 { return "Still missing: \(list(unseen.map(\.name)))." }
+        let usLeft = unseen.filter { TripSnapshot.usCodes.contains($0.code) }.count
+        let caLeft = unseen.count - usLeft
+        let parts = [usLeft > 0 ? states(usLeft) : nil, caLeft > 0 ? "\(caLeft) from Canada" : nil].compactMap { $0 }
+        return "\(list(parts)) to go — they're on the card."
+    }
+
+    static func topSpotter(_ trip: TripSnapshot) -> String {
+        guard !trip.sightings.isEmpty else { return "Nobody's spotted a plate on \(trip.name) yet." }
+        let named = trip.tally.filter { !$0.isUnknown }
+        guard let top = named.first else { return "Nobody's been credited with a plate on \(trip.name) yet." }
+        let leaders = named.filter { $0.count == top.count }
+        if leaders.count > 1 {
+            return "\(list(leaders.map(\.name))) are tied with \(top.count)."
+        }
+        if named.count == 1 {
+            return top.count == trip.sightings.count
+                ? "\(top.name) has spotted all \(top.count)."
+                : "\(top.name) has spotted \(top.count)."
+        }
+        let second = named[1]
+        return "\(top.name) leads \(trip.name) with \(top.count). \(second.name) has \(second.count)."
+    }
+
     // MARK: Helpers shared by every answer
 
     /// "today", "yesterday", "on Tuesday" (2–6 days ago), else "on Sep 30".

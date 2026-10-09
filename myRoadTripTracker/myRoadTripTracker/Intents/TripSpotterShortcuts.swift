@@ -13,5 +13,34 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
             shortTitle: "Trip Count",
             systemImageName: "number"
         )
+        AppShortcut(
+            intent: HaveWeSeenIntent(),
+            phrases: [
+                "Have we seen \(\.$region) in \(.applicationName)",
+                "Did we see \(\.$region) in \(.applicationName)",
+            ],
+            shortTitle: "Have We Seen…",
+            systemImageName: "questionmark.circle"
+        )
+        AppShortcut(
+            intent: PlatesLeftIntent(),
+            phrases: [
+                "Which states are left in \(.applicationName)",
+                "What plates are left in \(.applicationName)",
+                "What's left on \(\.$trip) in \(.applicationName)",
+            ],
+            shortTitle: "Plates Left",
+            systemImageName: "list.bullet"
+        )
+        AppShortcut(
+            intent: TopSpotterIntent(),
+            phrases: [
+                "Who's spotted the most in \(.applicationName)",
+                "Who's winning in \(.applicationName)",
+                "Who's winning \(\.$trip) in \(.applicationName)",
+            ],
+            shortTitle: "Top Spotter",
+            systemImageName: "crown"
+        )
     }
 }
