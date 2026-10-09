@@ -72,6 +72,13 @@ private struct TripRing: View {
 struct CountCard: View {
     let trip: TripSnapshot
 
+    /// The five newest plates, newest first, one per code: sync can leave two
+    /// sightings of the same plate, and `ForEach` needs unique ids.
+    private var recentFlags: [TripSnapshot.Sighting] {
+        var seen = Set<String>()
+        return Array(trip.sightings.reversed().filter { seen.insert($0.code).inserted }.prefix(5))
+    }
+
     var body: some View {
         SnippetShell(title: trip.name, isClosed: trip.isClosed) {
             HStack(spacing: 16) {
@@ -80,7 +87,7 @@ struct CountCard: View {
                     Text("\(trip.usSeen) of \(TripSnapshot.usCodes.count) US").font(.title3.weight(.bold))
                     Text("\(trip.caSeen) of \(TripSnapshot.caCodes.count) Canada").font(.subheadline.weight(.semibold)).opacity(0.85)
                     HStack(spacing: -4) {
-                        ForEach(Array(trip.sightings.suffix(5).reversed()), id: \.code) { sighting in
+                        ForEach(recentFlags, id: \.code) { sighting in
                             if let location = Location.byCode[sighting.code] {
                                 Flag(assetName: location.flagImageName)
                             }
