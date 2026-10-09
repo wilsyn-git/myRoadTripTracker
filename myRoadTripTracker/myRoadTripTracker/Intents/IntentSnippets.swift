@@ -25,7 +25,9 @@ private struct SnippetShell<Content: View>: View {
                 }
                 Text(title).font(.headline).lineLimit(1)
                 Spacer(minLength: 8)
-                Text(trailing).font(.subheadline.weight(.semibold)).opacity(0.85).fixedSize()
+                if !trailing.isEmpty {
+                    Text(trailing).font(.subheadline.weight(.semibold)).opacity(0.85).fixedSize()
+                }
             }
             content
         }
