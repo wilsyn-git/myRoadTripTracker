@@ -159,3 +159,14 @@ There is no test target (per `CLAUDE.md`). Verification for this build:
 - Widgets / Control Center controls.
 - Replaying what's-new cards later (no Settings screen to put it in).
 - Apple Intelligence schemas (no matching domain).
+
+---
+
+## Changes after TestFlight 62 (2026-10-09)
+
+Device feedback: "What's left on Miami in TripSpotter" didn't match, and "What did we see on the Miami trip in TripSpotter" fell through to Photos (no such phrase existed).
+
+- **Seventh intent, `PlatesSeenIntent(trip?)`:** "What have we seen / What did we see / What plates have we seen in TripSpotter", and "…on \(trip)…" variants. With ≤ 8 seen, Siri names them ("On Miami you've seen Florida, Georgia and Ohio."). With more, it gives the count and the latest three ("On Miami you've seen 23 states and 4 from Canada — most recently Maine, Ohio and Quebec."). The card shows the seen plates as chips, in the same style as the plates-left card.
+- **Natural trip names:** `TripEntity` gives Siri synonyms for each trip: "Miami trip", "the Miami trip", "the Miami", and "Miami" for a trip named "Miami Trip". Trip phrases also get "…the \(trip) trip…" variants.
+- **More phrase variants per intent:** for example "We got / Spotted / Add Maine", "How are we doing", "What's our count", "What's left", "Who's ahead" (41 phrases across 7 shortcuts).
+- **Second app names:** `INAlternativeAppNames` = "Spotter", "Trip Spotter". The Ask Siri card gains a line: "“Spotter” works too."

@@ -154,27 +154,15 @@ struct SeenCard: View {
     }
 }
 
-struct PlatesLeftCard: View {
-    let trip: TripSnapshot
+/// Plates as code chips, US then Canada — shared by the plates-left and plates-seen cards.
+private struct PlateChipSections: View {
+    let locations: [Location]
 
     private let columns = [GridItem(.adaptive(minimum: 30), spacing: 4)]
 
     var body: some View {
-        let unseen = trip.unseen
-        SnippetShell(title: trip.name, trailing: unseen.isEmpty ? "" : "\(unseen.count) left", isClosed: trip.isClosed) {
-            if unseen.isEmpty {
-                Label("Every plate spotted!", systemImage: "party.popper.fill").font(.title3.weight(.bold))
-            } else if trip.sightings.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("All \(Location.allLocations.count) to go").font(.title3.weight(.bold))
-                    Text("\(TripSnapshot.usCodes.count) US · \(TripSnapshot.caCodes.count) Canada")
-                        .font(.subheadline).opacity(0.85)
-                }
-            } else {
-                section("US", unseen.filter { TripSnapshot.usCodes.contains($0.code) })
-                section("Canada", unseen.filter { TripSnapshot.caCodes.contains($0.code) })
-            }
-        }
+        section("US", locations.filter { TripSnapshot.usCodes.contains($0.code) })
+        section("Canada", locations.filter { TripSnapshot.caCodes.contains($0.code) })
     }
 
     @ViewBuilder
@@ -193,6 +181,42 @@ struct PlatesLeftCard: View {
                     }
                 }
                 .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            }
+        }
+    }
+}
+
+struct PlatesSeenCard: View {
+    let trip: TripSnapshot
+
+    var body: some View {
+        let seen = trip.seen
+        SnippetShell(title: trip.name, trailing: seen.isEmpty ? "" : "\(seen.count) seen", isClosed: trip.isClosed) {
+            if seen.isEmpty {
+                Text("No plates yet").font(.title3.weight(.bold))
+            } else {
+                PlateChipSections(locations: seen)
+            }
+        }
+    }
+}
+
+struct PlatesLeftCard: View {
+    let trip: TripSnapshot
+
+    var body: some View {
+        let unseen = trip.unseen
+        SnippetShell(title: trip.name, trailing: unseen.isEmpty ? "" : "\(unseen.count) left", isClosed: trip.isClosed) {
+            if unseen.isEmpty {
+                Label("Every plate spotted!", systemImage: "party.popper.fill").font(.title3.weight(.bold))
+            } else if trip.sightings.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("All \(Location.allLocations.count) to go").font(.title3.weight(.bold))
+                    Text("\(TripSnapshot.usCodes.count) US · \(TripSnapshot.caCodes.count) Canada")
+                        .font(.subheadline).opacity(0.85)
+                }
+            } else {
+                PlateChipSections(locations: unseen)
             }
         }
     }

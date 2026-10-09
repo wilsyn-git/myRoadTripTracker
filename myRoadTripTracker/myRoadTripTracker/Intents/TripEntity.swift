@@ -10,7 +10,12 @@ nonisolated struct TripEntity: AppEntity {
     let id: String
     let name: String
 
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(
+            title: "\(name)",
+            synonyms: IntentAnswers.tripSynonyms(for: name).map { "\($0)" }
+        )
+    }
 
     init(id: String, name: String) {
         self.id = id

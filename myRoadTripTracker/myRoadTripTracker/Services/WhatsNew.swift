@@ -30,6 +30,7 @@ enum WhatsNew {
             .init(text: "Log plates and check your trip without opening the app — handy from the passenger seat or on CarPlay."),
             .init(text: "Say \u{201C}We saw Maine in TripSpotter\u{201D}", isKey: true),
             .init(text: "Or ask \u{201C}How many states have we seen in TripSpotter?\u{201D} The first time, Siri asks to turn on TripSpotter\u{2019}s shortcuts. Say yes."),
+            .init(text: "\u{201C}Spotter\u{201D} works too: \u{201C}What have we seen in Spotter?\u{201D}"),
             .init(text: "Missed it? In the Shortcuts app, open TripSpotter, tap \u{24D8} and turn Siri on."),
         ]),
     ]
