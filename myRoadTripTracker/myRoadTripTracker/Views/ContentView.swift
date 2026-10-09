@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var showingLeaveAlert = false
     @State private var leaveError: String?
     @State private var leftTripName: String?
+    @State private var whatsNewCard: Announcement?
 
     private let columns = [
         GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
@@ -178,6 +179,13 @@ struct ContentView: View {
         .animation(.spring, value: leftTripName)
         .onAppear {
             isPulsing = trips.isEmpty
+            presentWhatsNewIfDue()
+        }
+        .onChange(of: trips.isEmpty) { _, _ in
+            presentWhatsNewIfDue()
+        }
+        .sheet(item: $whatsNewCard) { card in
+            WhatsNewSheet(announcement: card)
         }
         .onChange(of: trips.count) { _, newCount in
             isPulsing = newCount == 0
@@ -208,6 +216,15 @@ struct ContentView: View {
 
     private func confirmLeft(_ name: String) {
         withAnimation { leftTripName = name }
+    }
+
+    /// Shows the next what's-new card when the trip list is on screen with nothing
+    /// else over it; otherwise it waits for the list's next appearance.
+    private func presentWhatsNewIfDue() {
+        guard whatsNewCard == nil, navigationPath.isEmpty,
+              !showingDeleteAlert, !showingLeaveAlert, leaveError == nil,
+              persistenceController.shareAcceptanceError == nil else { return }
+        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
     }
 
 }
