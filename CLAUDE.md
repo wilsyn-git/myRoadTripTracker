@@ -65,7 +65,7 @@ The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** 
 App/         myRoadTripTrackerApp.swift, AppDelegate.swift (+SceneDelegate)
 Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entities)
 Services/    PersistenceController, CoreDataHelpers, CloudKitUserHelper,
-             LocationManager, Location (63 NA regions), ImageProcessor
+             LocationManager, Location (64 NA regions), ImageProcessor
 Views/       SwiftUI views (ContentView, TripCardView, TripDetailView,
              PlateSightings*, Observations*, CloudSharingView, ...)
 Resources/   Info.plist, .entitlements, .xcdatamodeld, Assets.xcassets,
