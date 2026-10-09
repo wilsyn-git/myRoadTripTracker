@@ -28,7 +28,15 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
                 "We spotted a plate in \(.applicationName)",
             ],
             shortTitle: "Add a Plate",
-            systemImageName: "checkmark.circle"
+            systemImageName: "checkmark.circle",
+            parameterPresentation: ParameterPresentation(
+                for: \.$region,
+                summary: Summary("Add \(\.$region)"),
+                optionsCollections: {
+                    OptionsCollection(USPlateOptions(), title: "US States", systemImageName: "flag")
+                    OptionsCollection(CanadaPlateOptions(), title: "Canada", systemImageName: "leaf")
+                }
+            )
         )
         AppShortcut(
             intent: TripCountIntent(),
@@ -66,7 +74,15 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
                 "Did we get \(\.$region) in \(.applicationName)",
             ],
             shortTitle: "Have We Seen…",
-            systemImageName: "questionmark.circle"
+            systemImageName: "questionmark.circle",
+            parameterPresentation: ParameterPresentation(
+                for: \.$region,
+                summary: Summary("Have we seen \(\.$region)?"),
+                optionsCollections: {
+                    OptionsCollection(USPlateOptions(), title: "US States", systemImageName: "flag")
+                    OptionsCollection(CanadaPlateOptions(), title: "Canada", systemImageName: "leaf")
+                }
+            )
         )
         AppShortcut(
             intent: PlatesLeftIntent(),

@@ -89,3 +89,20 @@ nonisolated enum PlateRegion: String, AppEnum {
 extension Location {
     static let byCode: [String: Location] = Dictionary(uniqueKeysWithValues: allLocations.map { ($0.code, $0) })
 }
+
+// Experiment (build 67): group the per-plate tiles the Shortcuts app shows for
+// plate phrases into a US and a Canada collection. Spec, "Changes after TestFlight 62".
+
+nonisolated struct USPlateOptions: DynamicOptionsProvider {
+    @MainActor
+    func results() async throws -> [PlateRegion] {
+        Location.usStates.compactMap { PlateRegion(rawValue: $0.code) }
+    }
+}
+
+nonisolated struct CanadaPlateOptions: DynamicOptionsProvider {
+    @MainActor
+    func results() async throws -> [PlateRegion] {
+        Location.canadaLocations.compactMap { PlateRegion(rawValue: $0.code) }
+    }
+}
