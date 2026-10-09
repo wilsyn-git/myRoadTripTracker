@@ -12,9 +12,11 @@ struct OpenTripIntent: AppIntent {
     var trip: TripEntity?
 
     @MainActor
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         let target = try IntentTrips.resolve(trip)
         IntentRoute.shared.open(target.objectID)
-        return .result()
+        // Spoken, never a bare "Done.": when Siri can't match a phrase it guesses an
+        // intent, and a guess that lands here must not sound like a plate was added.
+        return .result(dialog: IntentDialog(stringLiteral: IntentAnswers.opening(tripName: target.name)))
     }
 }
