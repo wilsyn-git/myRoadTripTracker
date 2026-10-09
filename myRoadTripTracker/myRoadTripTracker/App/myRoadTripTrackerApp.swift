@@ -7,6 +7,7 @@ struct myRoadTripTrackerApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     @State private var persistenceController = PersistenceController.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         #if DEBUG
@@ -31,6 +32,11 @@ struct myRoadTripTrackerApp: App {
             }
             .task {
                 appDelegate.persistenceController = persistenceController
+            }
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                // Pins for voice marks Siri saved without a location fix.
+                guard phase == .active, persistenceController.setupError == nil else { return }
+                Task { await PinBackfill.run(in: persistenceController.viewContext) }
             }
         }
         .environment(\.managedObjectContext, persistenceController.viewContext)
