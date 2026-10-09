@@ -8,7 +8,7 @@ struct MarkPlateIntent: AppIntent {
     static let description = IntentDescription("Ticks off a state or province on your current trip.")
     static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    @Parameter(title: "Plate", requestValueDialog: "Which plate did you see?")
+    @Parameter(title: "Plate", requestValueDialog: "Oh! Which one?")
     var region: PlateRegion
 
     @Parameter(title: "Trip")

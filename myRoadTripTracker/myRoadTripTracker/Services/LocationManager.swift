@@ -46,12 +46,25 @@ class LocationManager: NSObject {
         return nil
     }
 
+    /// Whether location is already allowed; never prompts.
+    var isAuthorized: Bool {
+        authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
     /// One fix for a Siri request: never prompts for permission, gives up after `timeout`.
-    /// Returns nil when not already authorized, when iOS won't locate a background launch,
-    /// or on timeout; the caller then records `0,0` (privacy invariants, CLAUDE.md).
-    func requestFixIfAuthorized(timeout: Duration) async -> CLLocation? {
-        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
-            return nil
+    /// Uses the phone's last known location when it is at most `maxCachedAge` old and
+    /// accurate to `maxCachedAccuracy` metres, which is often instant in a moving car;
+    /// otherwise asks for one fresh fix. Returns nil when not already authorized, when iOS
+    /// won't locate a background launch, or on timeout; the caller then records `0,0`
+    /// (privacy invariants, CLAUDE.md).
+    func requestFixIfAuthorized(timeout: Duration,
+                                maxCachedAge: TimeInterval = 300,
+                                maxCachedAccuracy: CLLocationAccuracy = 1000) async -> CLLocation? {
+        guard isAuthorized else { return nil }
+        if let cached = manager.location,
+           -cached.timestamp.timeIntervalSinceNow <= maxCachedAge,
+           cached.horizontalAccuracy >= 0, cached.horizontalAccuracy <= maxCachedAccuracy {
+            return cached
         }
         let timeoutTask = Task { @MainActor in
             try? await Task.sleep(for: timeout)

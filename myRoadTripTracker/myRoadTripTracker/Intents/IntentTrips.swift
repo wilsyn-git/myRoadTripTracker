@@ -109,7 +109,8 @@ enum IntentTrips {
 
         // The user-ID lookup runs while we wait on GPS.
         let userIDLookup = Task { await CloudKitUserHelper.currentUserID() }
-        let fix = await LocationManager().requestFixIfAuthorized(timeout: .seconds(3))
+        let locator = LocationManager()
+        let fix = await locator.requestFixIfAuthorized(timeout: .seconds(6))
         let userID = await userIDLookup.value
         let name = speakerName(for: trip, userID: userID)
 
@@ -137,7 +138,11 @@ enum IntentTrips {
             context.delete(sighting)
             throw IntentFailure.storeUnavailable
         }
-        await PersistenceController.shared.awaitExport(after: savedAt, timeout: .seconds(5))
+        if fix == nil, locator.isAuthorized {
+            // iOS gave no fix to the background launch: pin it next time the app is open.
+            PinBackfill.remember(sighting)
+        }
+        await PersistenceController.shared.awaitExport(after: savedAt, timeout: .seconds(4))
         return .added(number: snapshot(of: trip).seenCodes.count)
     }
 }
