@@ -4,6 +4,18 @@ import AppIntents
 nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
+            intent: MarkPlateIntent(),
+            phrases: [
+                "We saw \(\.$region) in \(.applicationName)",
+                "We just saw \(\.$region) in \(.applicationName)",
+                "Tick off \(\.$region) in \(.applicationName)",
+                "Mark \(\.$region) in \(.applicationName)",
+                "Mark a plate in \(.applicationName)",
+            ],
+            shortTitle: "Mark a Plate",
+            systemImageName: "checkmark.circle"
+        )
+        AppShortcut(
             intent: TripCountIntent(),
             phrases: [
                 "How many states have we seen in \(.applicationName)",

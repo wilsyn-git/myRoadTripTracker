@@ -1,5 +1,6 @@
 import AppIntents
 import CoreData
+import CoreLocation
 
 /// What Siri says when an intent can't do what was asked (spec, "Edge cases").
 nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible {
@@ -81,5 +82,55 @@ enum IntentTrips {
                                       spottedBy: $0.spottedByName, seenDate: $0.seenDate)
             }
         )
+    }
+
+    enum MarkOutcome {
+        /// `number` is how many distinct plates the trip now has.
+        case added(number: Int)
+        case alreadySeen(TripSnapshot.Sighting)
+    }
+
+    /// The name a tap would credit: your display name on this trip, else the
+    /// default display name, else "Me". Never creates a `TripParticipant`.
+    static func speakerName(for trip: Trip) async -> String {
+        let userID = await CloudKitUserHelper.currentUserID()
+        if let participant = trip.participantsArray.first(where: { $0.cloudKitUserID == userID }),
+           let name = IntentAnswers.cleanName(participant.displayName) {
+            return name
+        }
+        return IntentAnswers.cleanName(UserDefaults.standard.string(forKey: "defaultDisplayName")) ?? "Me"
+    }
+
+    /// Adds `region` to `trip` the way `PlateSightingsGrid.markAsSeen` does.
+    static func markPlate(_ region: PlateRegion, on trip: Trip) async throws -> MarkOutcome {
+        guard !trip.isClosed else { throw IntentFailure.tripClosed(trip.name) }
+        guard PersistenceController.shared.canEdit(trip) else { throw IntentFailure.cannotEdit(trip.name) }
+        let location = region.location
+        if let existing = snapshot(of: trip).sighting(of: location.code) { return .alreadySeen(existing) }
+
+        let name = await speakerName(for: trip)
+        let fix = await LocationManager().requestFixIfAuthorized(timeout: .seconds(3))
+
+        // A tap or a sync may have added it while we waited.
+        if let existing = snapshot(of: trip).sighting(of: location.code) { return .alreadySeen(existing) }
+
+        let sighting = PlateSighting(
+            context: context,
+            locationCode: location.code,
+            locationName: location.name,
+            latitude: fix?.coordinate.latitude ?? 0.0,
+            longitude: fix?.coordinate.longitude ?? 0.0,
+            spottedByName: name
+        )
+        sighting.trip = trip
+        let savedAt = Date.now
+        do {
+            try context.trySave(contextInfo: "intentMarkPlate")
+        } catch {
+            context.delete(sighting)
+            throw IntentFailure.storeUnavailable
+        }
+        await PersistenceController.shared.awaitExport(after: savedAt, timeout: .seconds(5))
+        return .added(number: snapshot(of: trip).seenCodes.count)
     }
 }

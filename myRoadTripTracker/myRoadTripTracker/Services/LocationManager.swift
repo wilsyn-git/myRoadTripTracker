@@ -46,6 +46,35 @@ class LocationManager: NSObject {
         return nil
     }
 
+    /// One fix for a Siri request: never prompts for permission, gives up after `timeout`.
+    /// Returns nil when not already authorized, when iOS won't locate a background launch,
+    /// or on timeout; the caller then records `0,0` (privacy invariants, CLAUDE.md).
+    func requestFixIfAuthorized(timeout: Duration) async -> CLLocation? {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            return nil
+        }
+        let timeoutTask = Task { @MainActor in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            self.resumeLocationContinuations(with: nil)
+        }
+        let location = await withCheckedContinuation { continuation in
+            locationContinuations.append(continuation)
+            manager.requestLocation()
+        }
+        timeoutTask.cancel()
+        return location
+    }
+
+    /// Drain and resume all pending location continuations exactly once.
+    private func resumeLocationContinuations(with location: CLLocation?) {
+        let pending = locationContinuations
+        locationContinuations = []
+        for continuation in pending {
+            continuation.resume(returning: location)
+        }
+    }
+
     /// Ensure we hold when-in-use authorization. When the status is undetermined, prompt and
     /// await the user's actual decision via the delegate callback rather than guessing after a
     /// fixed delay.

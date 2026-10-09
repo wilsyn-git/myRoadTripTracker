@@ -151,4 +151,19 @@ enum IntentAnswers {
         if stripped.hasSuffix(" trip") { stripped.removeLast(5) }
         return !stripped.isEmpty && name.localizedStandardContains(stripped)
     }
+
+    static func marked(_ location: Location, number: Int, tripName: String) -> String {
+        "Got it — \(location.name) is number \(number) on \(tripName)."
+    }
+
+    static func alreadySeen(_ location: Location, sighting: TripSnapshot.Sighting, now: Date = .now) -> String {
+        let day = sighting.seenDate.map { " " + spokenDay($0, now: now) } ?? ""
+        if let who = cleanName(sighting.spottedBy) {
+            return "\(location.name)'s already on the list — \(who) spotted it\(day)."
+        }
+        if !day.isEmpty {
+            return "\(location.name)'s already on the list — spotted\(day)."
+        }
+        return "\(location.name)'s already on the list."
+    }
 }
