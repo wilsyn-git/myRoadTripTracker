@@ -146,6 +146,12 @@ struct PlateSightingsGrid: View {
             let longitude = loc?.coordinate.longitude ?? 0.0
 
             recordingCodes.remove(location.code)
+
+            // A Siri mark or a sync may have added it, or the trip may have been
+            // closed or deleted, while we waited on GPS.
+            guard !trip.isDeleted, trip.managedObjectContext != nil,
+                  !trip.isClosed, !isSeen(location) else { return }
+
             revealingCodes.insert(location.code)
 
             let sighting = PlateSighting(

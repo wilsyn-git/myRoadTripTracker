@@ -182,3 +182,8 @@ Device feedback: "What's left on Miami in TripSpotter" didn't match, and "What d
   - The "Add \(region) in / to" phrases are removed, which also removes 128 plate tiles from the Shortcuts app. "Add a plate to / in" stays: it has no plate value and works once TripSpotter is picked in the chooser.
   - The Ask Siri card leads with "We saw Maine in TripSpotter", then the two-step "We saw a plate in Spotter". Phones that already showed the card won't show it again, so the release notes carry the change.
   - Open Trip now says "Opening <trip>.", so a wrong guess can't sound like a plate was added.
+- **Build 69: Siri follow-ups #12, #13, #17, #20.**
+  - Tapping a plate checks again after its GPS wait (trip still there, still open, plate not yet seen), as the voice path already did. A Siri mark that lands during the wait no longer leads to a second sighting.
+  - The Ask Siri card shows only when the trip list appears (launch, or coming back from a trip), no longer the moment the list gains its first trip. Someone joining through a share link no longer gets the card before they can open the trip they came for.
+  - Siri cards no longer leave a gap where the header's right-hand text is empty.
+  - At accessibility text sizes, "Got it" scrolls with the card's text instead of sitting in a pinned bar that left a blurred trace of the text beneath it.

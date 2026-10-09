@@ -181,9 +181,6 @@ struct ContentView: View {
             isPulsing = trips.isEmpty
             presentWhatsNewIfDue()
         }
-        .onChange(of: trips.isEmpty) { _, _ in
-            presentWhatsNewIfDue()
-        }
         .sheet(item: $whatsNewCard) { card in
             WhatsNewSheet(announcement: card)
         }
