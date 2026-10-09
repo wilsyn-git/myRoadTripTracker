@@ -19,7 +19,13 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
                 // No "Mark …" or "Tick off …": Siri reads them as task commands and
                 // answers itself without trying TripSpotter (seen on device, build 63).
                 "Add \(\.$region) in \(.applicationName)",
+                "Add \(\.$region) to \(.applicationName)",
+                // Two-step: Siri answers "Oh! Which one?" and takes the plate on its own,
+                // which it hears far more reliably than a plate mid-sentence.
+                "Add a plate to \(.applicationName)",
                 "Add a plate in \(.applicationName)",
+                "We saw a plate in \(.applicationName)",
+                "We spotted a plate in \(.applicationName)",
             ],
             shortTitle: "Mark a Plate",
             systemImageName: "checkmark.circle"
