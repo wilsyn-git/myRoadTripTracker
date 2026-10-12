@@ -1,14 +1,15 @@
 import CoreData
 import CoreLocation
 
-/// Gives a map pin to voice-marked plates that Siri saved without one.
+/// Gives a map pin to plates saved without one.
 ///
 /// A Siri mark runs in a background launch, where iOS may not hand a "While Using" app a
-/// location fix. Such a sighting is saved at `0,0` and remembered here. The next time the
-/// app is active, any remembered sighting from the last ten minutes gets the current
-/// location: rough at highway speed, but better than no pin. The list lives on this phone
-/// only, so only the speaker's own marks are touched. One fix, no prompt, no tracking
-/// (privacy invariants, CLAUDE.md).
+/// location fix. A tapped plate saves before its fix arrives, and sometimes none comes in
+/// time (a tunnel, a dead zone). Either way the sighting is saved at `0,0` and remembered
+/// here. The next time the app is active, any remembered sighting from the last ten
+/// minutes gets the current location: rough at highway speed, but better than no pin. The
+/// list lives on this phone only, so only this person's own marks are touched. One fix, no
+/// prompt, no tracking (privacy invariants, CLAUDE.md).
 @MainActor
 enum PinBackfill {
     static let pendingKey = "pinBackfill.pending"

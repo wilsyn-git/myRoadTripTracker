@@ -3,7 +3,6 @@ import SwiftUI
 struct PlateTileView: View {
     let location: Location
     let isSeen: Bool
-    let isRecording: Bool
     let isRevealing: Bool
     let onTapUnseen: () -> Void
     let onTapSeen: () -> Void
@@ -13,20 +12,9 @@ struct PlateTileView: View {
     @State private var grayscaleAmount: Double = 1.0
     @State private var showCheckmark = false
     @State private var showBurst = false
-    @State private var trimEnd: CGFloat = 0
 
     var body: some View {
-        Button {
-            if isSeen {
-                onTapSeen()
-            } else if !isRecording && !isRevealing {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                withAnimation(.easeInOut(duration: 0.08)) {
-                    tileScale = 0.95
-                }
-                onTapUnseen()
-            }
-        } label: {
+        Button(action: handleTap) {
             tileContent
         }
         .buttonStyle(.plain)
@@ -34,17 +22,6 @@ struct PlateTileView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
         .accessibilityHint("Double-tap to \(isSeen ? "view details" : "mark as seen")")
-        .onChange(of: isRecording) { _, recording in
-            if recording {
-                withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
-                    trimEnd = 1
-                }
-            } else {
-                withAnimation(.default) {
-                    trimEnd = 0
-                }
-            }
-        }
         .onChange(of: isRevealing) { _, revealing in
             if revealing {
                 playRevealAnimation()
@@ -93,7 +70,7 @@ struct PlateTileView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(.separator), lineWidth: 0.5)
         )
-        .opacity(isSeen || isRecording || isRevealing ? 1.0 : 0.45)
+        .opacity(isSeen || isRevealing ? 1.0 : 0.45)
         .shadow(color: isSeen ? .black.opacity(0.06) : .clear, radius: 1, y: 1)
         .overlay(alignment: .topTrailing) {
             if showCheckmark {
@@ -104,17 +81,20 @@ struct PlateTileView: View {
             }
         }
         .overlay {
-            if isRecording {
-                RoundedRectangle(cornerRadius: 8)
-                    .trim(from: 0, to: trimEnd)
-                    .stroke(Color.blue, lineWidth: 2)
-            }
-        }
-        .overlay {
             if showBurst {
                 ConfettiBurstView()
                     .accessibilityHidden(true)
             }
+        }
+    }
+
+    private func handleTap() {
+        // Ignore taps while the reveal plays, so a quick double-tap doesn't open details.
+        guard !isRevealing else { return }
+        if isSeen {
+            onTapSeen()
+        } else {
+            onTapUnseen()
         }
     }
 
@@ -133,8 +113,14 @@ struct PlateTileView: View {
             grayscaleAmount = 0
         }
 
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-            tileScale = 1.0
+        // A quick press, then a springy release. The reveal now starts on the tap itself
+        // (the save no longer waits for GPS), so it carries the press too.
+        withAnimation(.easeInOut(duration: 0.08)) {
+            tileScale = 0.95
+        } completion: {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                tileScale = 1.0
+            }
         }
 
         showBurst = true

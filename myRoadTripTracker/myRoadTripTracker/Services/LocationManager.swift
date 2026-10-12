@@ -25,30 +25,27 @@ class LocationManager: NSObject {
         authorizationStatus = manager.authorizationStatus
     }
 
-    /// Request a location fix, retrying over the given duration before giving up.
-    func requestCurrentLocation(timeout: TimeInterval = 30) async -> CLLocation? {
+    /// One fix for a tapped plate. Asks for When In Use permission the first time, then
+    /// requests one fresh fix and gives up after `timeout`. Returns nil when permission is
+    /// denied or no fix arrives in time.
+    func requestFix(timeout: Duration) async -> CLLocation? {
         guard await ensureAuthorized() else { return nil }
-
-        let deadline = Date().addingTimeInterval(timeout)
-        var delay: Duration = .seconds(2)
-
-        while Date() < deadline {
-            let location = await withCheckedContinuation { continuation in
-                locationContinuations.append(continuation)
-                manager.requestLocation()
-            }
-            if let location {
-                return location
-            }
-            try? await Task.sleep(for: delay)
-            delay = min(delay * 2, .seconds(8))
-        }
-        return nil
+        return await requestOneFix(timeout: timeout)
     }
 
     /// Whether location is already allowed; never prompts.
     var isAuthorized: Bool {
         authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
+    /// The phone's last known location when it is at most `maxAge` seconds old and accurate
+    /// to `maxAccuracy` metres; nil otherwise, or when not authorized. Never prompts and
+    /// starts no location request.
+    func recentLocation(maxAge: TimeInterval, maxAccuracy: CLLocationAccuracy) -> CLLocation? {
+        guard isAuthorized, let cached = manager.location,
+              -cached.timestamp.timeIntervalSinceNow <= maxAge,
+              cached.horizontalAccuracy >= 0, cached.horizontalAccuracy <= maxAccuracy else { return nil }
+        return cached
     }
 
     /// One fix for a Siri request: never prompts for permission, gives up after `timeout`.
@@ -61,11 +58,14 @@ class LocationManager: NSObject {
                                 maxCachedAge: TimeInterval = 300,
                                 maxCachedAccuracy: CLLocationAccuracy = 1000) async -> CLLocation? {
         guard isAuthorized else { return nil }
-        if let cached = manager.location,
-           -cached.timestamp.timeIntervalSinceNow <= maxCachedAge,
-           cached.horizontalAccuracy >= 0, cached.horizontalAccuracy <= maxCachedAccuracy {
+        if let cached = recentLocation(maxAge: maxCachedAge, maxAccuracy: maxCachedAccuracy) {
             return cached
         }
+        return await requestOneFix(timeout: timeout)
+    }
+
+    /// Asks CoreLocation for one fresh fix, giving up after `timeout`.
+    private func requestOneFix(timeout: Duration) async -> CLLocation? {
         let timeoutTask = Task { @MainActor in
             try? await Task.sleep(for: timeout)
             guard !Task.isCancelled else { return }

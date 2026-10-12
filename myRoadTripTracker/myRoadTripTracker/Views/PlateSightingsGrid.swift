@@ -13,7 +13,6 @@ struct PlateSightingsGrid: View {
     var plateFilter: PlateFilter = .all
     var currentUserName: String
     @Environment(\.managedObjectContext) private var viewContext
-    @State private var recordingCodes: Set<String> = []
     @State private var revealingCodes: Set<String> = []
     @State private var sightingToInspect: PlateSighting?
 
@@ -83,7 +82,6 @@ struct PlateSightingsGrid: View {
                     PlateTileView(
                         location: location,
                         isSeen: seenCodes.contains(location.code),
-                        isRecording: recordingCodes.contains(location.code),
                         isRevealing: revealingCodes.contains(location.code),
                         onTapUnseen: { markAsSeen(location) },
                         onTapSeen: { sightingToInspect = sighting(for: location) }
@@ -135,39 +133,52 @@ struct PlateSightingsGrid: View {
         }
     }
 
+    /// Saves the plate at once, so the tap counts immediately, then pins it on the map when
+    /// a fix arrives. A recent last-known location pins it straight away.
     private func markAsSeen(_ location: Location) {
-        guard !trip.isClosed, !isSeen(location), !recordingCodes.contains(location.code) else { return }
+        // A Siri mark or a sync may already have added it, or the trip may have been
+        // closed or deleted.
+        guard !trip.isDeleted, trip.managedObjectContext != nil,
+              !trip.isClosed, !isSeen(location) else { return }
 
-        recordingCodes.insert(location.code)
+        let recent = locationManager.recentLocation(maxAge: 60, maxAccuracy: 100)
+        revealingCodes.insert(location.code)
 
+        let sighting = PlateSighting(
+            context: viewContext,
+            locationCode: location.code,
+            locationName: location.name,
+            latitude: recent?.coordinate.latitude ?? 0.0,
+            longitude: recent?.coordinate.longitude ?? 0.0,
+            spottedByName: currentUserName
+        )
+        sighting.trip = trip
+        viewContext.save(contextInfo: "markAsSeen")
+
+        if recent == nil {
+            let sightingID = sighting.objectID
+            Task { await attachLocation(to: sightingID) }
+        }
         Task {
-            let loc = await locationManager.requestCurrentLocation()
-            let latitude = loc?.coordinate.latitude ?? 0.0
-            let longitude = loc?.coordinate.longitude ?? 0.0
-
-            recordingCodes.remove(location.code)
-
-            // A Siri mark or a sync may have added it, or the trip may have been
-            // closed or deleted, while we waited on GPS.
-            guard !trip.isDeleted, trip.managedObjectContext != nil,
-                  !trip.isClosed, !isSeen(location) else { return }
-
-            revealingCodes.insert(location.code)
-
-            let sighting = PlateSighting(
-                context: viewContext,
-                locationCode: location.code,
-                locationName: location.name,
-                latitude: latitude,
-                longitude: longitude,
-                spottedByName: currentUserName
-            )
-            sighting.trip = trip
-            viewContext.save(contextInfo: "markAsSeen")
-
             try? await Task.sleep(for: .milliseconds(800))
             revealingCodes.remove(location.code)
         }
+    }
+
+    /// Pins a just-saved sighting once a fix arrives, unless it was removed or got a
+    /// location some other way while we waited. With no fix in time, `PinBackfill` tries
+    /// again the next time the app is opened.
+    private func attachLocation(to sightingID: NSManagedObjectID) async {
+        let fix = await locationManager.requestFix(timeout: .seconds(10))
+        guard let sighting = try? viewContext.existingObject(with: sightingID) as? PlateSighting,
+              !sighting.isDeleted, !sighting.hasValidCoordinate else { return }
+        guard let fix else {
+            if locationManager.isAuthorized { PinBackfill.remember(sighting) }
+            return
+        }
+        sighting.latitude = fix.coordinate.latitude
+        sighting.longitude = fix.coordinate.longitude
+        viewContext.save(contextInfo: "attachSightingLocation")
     }
 
     private func unmarkAsSeen(_ location: Location) {
