@@ -32,7 +32,12 @@ Both have `NSPersistentHistoryTrackingKey` and `NSPersistentStoreRemoteChangeNot
 
 `@FetchRequest` spans both stores → trip list shows owned + shared together.
 
-Real-time sync requires the remote-change handler to actually process persistent history (`NSPersistentHistoryChangeRequest.fetchHistory(after: token)` + `viewContext.mergeChanges(fromContextDidSave:)`); auto-merge alone is insufficient for live UI updates from CloudKit. See `cloudkit_coredata_lessons` memory.
+Real-time sync requires the remote-change handler to actually process persistent history; auto-merge alone is insufficient for live UI updates from CloudKit. Each pass (`PersistenceController.processRemoteChanges`):
+- fetches history on a background `historyContext`, with one in-memory token per store starting at launch, skipping transactions authored `"app"` (the view context's own saves);
+- coalesces bursts of notifications into one pass at a time;
+- merges once with `NSManagedObjectContext.mergeChanges(fromRemoteContextSave:into:)`.
+
+The pattern follows Apple's sample in `docs/apple-sample/Persistence/PersistenceController+History.swift`. See also the `cloudkit_coredata_lessons` memory.
 
 ## Data model (`myRoadTripTracker.xcdatamodeld`)
 
