@@ -1,9 +1,9 @@
 import CloudKit
-@preconcurrency import CoreData
+import CoreData
 import os.log
 import SwiftUI
 
-private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "myRoadTripTracker", category: "Persistence")
+nonisolated private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "myRoadTripTracker", category: "Persistence")
 
 @MainActor
 @Observable
@@ -152,7 +152,7 @@ final class PersistenceController {
 
         // Configure view context
         persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
-        persistentContainer.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        persistentContainer.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
         persistentContainer.viewContext.transactionAuthor = Self.appTransactionAuthor
 
         // Merge only history from here on. A freshly loaded view context already reads
@@ -261,11 +261,13 @@ final class PersistenceController {
     /// and merges it into the view context in one pass. Live sync depends on this
     /// (CLAUDE.md): `automaticallyMergesChangesFromParent` alone doesn't refresh the UI.
     private func processRemoteChanges() async {
-        let stores = [_privatePersistentStore, _sharedPersistentStore].compactMap { $0 }
         let context = historyContext
         let tokens = historyTokens
         let (changes, newTokens) = await context.perform {
-            Self.fetchHistory(in: context, stores: stores, after: tokens)
+            // Read the stores on this queue: `NSPersistentStore` isn't Sendable, so they can't
+            // be captured (#47). The coordinator holds exactly the private and shared stores.
+            let stores = context.persistentStoreCoordinator?.persistentStores ?? []
+            return Self.fetchHistory(in: context, stores: stores, after: tokens)
         }
         historyTokens = newTokens
         guard !changes.isEmpty else { return }
@@ -388,7 +390,9 @@ final class PersistenceController {
         share[CKShare.SystemFieldKey.title] = trip.name
         share.publicPermission = .readWrite
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            persistentContainer.persistUpdatedShare(share, in: store) { _, error in
+            // Core Data calls this off the main thread. `@Sendable` makes the compiler hold it
+            // to that; without it, main-actor state touched here would compile and race (#47).
+            persistentContainer.persistUpdatedShare(share, in: store) { @Sendable _, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
@@ -423,10 +427,10 @@ final class PersistenceController {
         persistentContainer.acceptShareInvitations(
             from: [metadata],
             into: store
-        ) { _, error in
+        ) { @Sendable [weak self] _, error in   // runs off the main thread; see shareTrip
             if let error {
                 let message = error.localizedDescription
-                Task { @MainActor [weak self] in
+                Task { @MainActor in
                     self?.shareAcceptanceError = "Failed to join shared trip: \(message)"
                 }
             }
@@ -449,7 +453,7 @@ final class PersistenceController {
     /// watchdog (0x8BADF00D) on the main thread.
     func leaveSharedTrip(_ trip: Trip) async throws {
         let objectID = trip.objectID
-        guard let store = privatePersistentStore else {
+        guard let storeID = privatePersistentStore?.identifier else {
             throw NSError(domain: "PersistenceController", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."])
         }
@@ -466,6 +470,12 @@ final class PersistenceController {
                 guard let me = share.currentUserParticipant, me.role != .owner else {
                     continuation.resume(); return                // owner / not a participant — never leave
                 }
+                guard let store = Self.store(withID: storeID, in: container) else {
+                    continuation.resume(throwing: NSError(
+                        domain: "PersistenceController", code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."]))
+                    return
+                }
                 share.removeParticipant(me)
                 container.persistUpdatedShare(share, in: store) { _, error in
                     if let error { continuation.resume(throwing: error) }
@@ -481,7 +491,7 @@ final class PersistenceController {
     /// Never removes the owner. Runs on a background context, like `leaveSharedTrip`.
     func revokeAccess(to trip: Trip, forUserID userID: String) async throws {
         let objectID = trip.objectID
-        guard let store = privatePersistentStore else {
+        guard let storeID = privatePersistentStore?.identifier else {
             throw NSError(domain: "PersistenceController", code: 4,
                           userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."])
         }
@@ -498,6 +508,12 @@ final class PersistenceController {
                     logger.info("Revoke: no share participant matches this user ID; only the row is removed.")
                     continuation.resume(); return
                 }
+                guard let store = Self.store(withID: storeID, in: container) else {
+                    continuation.resume(throwing: NSError(
+                        domain: "PersistenceController", code: 4,
+                        userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."]))
+                    return
+                }
                 share.removeParticipant(participant)
                 container.persistUpdatedShare(share, in: store) { _, error in
                     if let error { continuation.resume(throwing: error) }
@@ -505,6 +521,12 @@ final class PersistenceController {
                 }
             }
         }
+    }
+
+    /// The loaded store with this identifier. Background closures capture the identifier, a
+    /// `String`, and look the store up on their own queue: `NSPersistentStore` isn't Sendable (#47).
+    nonisolated private static func store(withID id: String, in container: NSPersistentContainer) -> NSPersistentStore? {
+        container.persistentStoreCoordinator.persistentStores.first { $0.identifier == id }
     }
 
     /// Check if the current user owns this trip (i.e., it lives in the private store).

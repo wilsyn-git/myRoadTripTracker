@@ -93,6 +93,14 @@ Four entities, all `usedWithCloudKit="YES"`:
 - **ObservationEntry** — append-only notes with `authorName`.
 - **TripParticipant** — `displayName`, `cloudKitUserID`, `joinedDate`.
 
+### Concurrency (Swift 6 language mode, #47)
+
+The target builds in **Swift 6 mode** with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and it must build with zero warnings.
+- Mark every managed object class and each of its `+CoreDataProperties` extensions `nonisolated`. Otherwise the default MainActor isolation makes the `@NSManaged` properties main-actor-only, and the convenience inits and background contexts can't use them. A managed object belongs to its context's queue, not to an actor.
+- Background closures (`perform`, `Task.detached`) capture `NSManagedObjectID`s and store identifiers (`String`), never `NSManagedObject`s or `NSPersistentStore`s. Look the object or store up on the closure's own queue (`PersistenceController.store(withID:in:)`).
+- Mark Core Data completion handlers you write in main-actor code `@Sendable`, as in `shareTrip` and `acceptShare`. They run off the main thread, and without `@Sendable` the compiler lets them touch main-actor state unchecked.
+- Never silence a diagnostic with `@unchecked Sendable` or `nonisolated(unsafe)`.
+
 ## Sharp edges (will bite you again)
 
 These are non-obvious things that have already cost time on this project. Honor them before "cleaning up."

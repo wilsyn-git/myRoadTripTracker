@@ -2,7 +2,7 @@ import Foundation
 import CoreData
 import CoreLocation
 
-extension PlateSighting {
+nonisolated extension PlateSighting {
     @nonobjc public class func fetchRequest() -> NSFetchRequest<PlateSighting> {
         return NSFetchRequest<PlateSighting>(entityName: "PlateSighting")
     }
@@ -16,7 +16,7 @@ extension PlateSighting {
     @NSManaged public var trip: Trip?
 }
 
-extension PlateSighting: Identifiable {
+nonisolated extension PlateSighting: Identifiable {
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
