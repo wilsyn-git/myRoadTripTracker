@@ -22,7 +22,15 @@ final class PersistenceController {
 
     private var _sharedPersistentStore: NSPersistentStore?
     private var remoteChangeObserver: Any?
-    private var lastHistoryToken: NSPersistentHistoryToken?
+    /// The author stamped on contexts this app saves from. History processing skips these
+    /// transactions, since they're already in the view context (#40).
+    nonisolated static let appTransactionAuthor = "app"
+    /// Reads persistent history off the main thread.
+    private let historyContext: NSManagedObjectContext
+    /// Per store identifier: the last history transaction merged into `viewContext`.
+    @ObservationIgnored private var historyTokens: [String: NSPersistentHistoryToken] = [:]
+    @ObservationIgnored private var isProcessingHistory = false
+    @ObservationIgnored private var historyNeedsAnotherPass = false
     private var pendingShareMetadata: [CKShare.Metadata] = []
     var shareAcceptanceError: String?
     /// Non-nil if the database failed to initialize. Observed by the UI to show an error screen.
@@ -56,6 +64,7 @@ final class PersistenceController {
     init() {
         Self.removeOldSwiftDataStoreIfNeeded()
         persistentContainer = NSPersistentCloudKitContainer(name: "myRoadTripTracker")
+        historyContext = persistentContainer.newBackgroundContext()
 
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
         let storeFolderURL = baseURL.appendingPathComponent("CoreDataStores")
@@ -144,6 +153,19 @@ final class PersistenceController {
         // Configure view context
         persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
         persistentContainer.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        persistentContainer.viewContext.transactionAuthor = Self.appTransactionAuthor
+
+        // Merge only history from here on. A freshly loaded view context already reads
+        // everything saved before launch, so tokens live in memory and start at "now".
+        // Take them before pinning the generation, so nothing falls between the two.
+        for store in [privateStore, sharedStore].compactMap({ $0 }) {
+            if let token = coordinator.currentPersistentHistoryToken(fromStores: [store]) {
+                historyTokens[store.identifier] = token
+            }
+        }
+        // Tokens used to be kept on disk; remove the old file.
+        try? FileManager.default.removeItem(at: baseURL.appendingPathComponent("historyToken.data"))
+
         do {
             try persistentContainer.viewContext.setQueryGenerationFrom(.current)
         } catch {
@@ -151,14 +173,13 @@ final class PersistenceController {
         }
 
         // Listen for remote changes and merge them into the view context
-        lastHistoryToken = Self.loadHistoryToken()
         remoteChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSPersistentStoreRemoteChange,
             object: persistentContainer.persistentStoreCoordinator,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.processRemoteChanges()
+                self?.scheduleHistoryProcessing()
             }
         }
 
@@ -217,32 +238,97 @@ final class PersistenceController {
         return (sightingDates + observationDates).min()
     }
 
-    /// Fetch persistent history since the last token and merge changes into the view context.
-    private func processRemoteChanges() {
-        let request = NSPersistentHistoryChangeRequest.fetchHistory(after: lastHistoryToken)
-        guard let result = try? viewContext.execute(request) as? NSPersistentHistoryResult,
-              let transactions = result.result as? [NSPersistentHistoryTransaction],
-              !transactions.isEmpty else {
+    // MARK: - Remote changes
+
+    /// Coalesces bursts of store-change notifications (a CloudKit import posts many): one
+    /// pass at a time, plus one more if notifications arrived during it.
+    private func scheduleHistoryProcessing() {
+        guard !isProcessingHistory else {
+            historyNeedsAnotherPass = true
             return
         }
-        for transaction in transactions {
-            viewContext.mergeChanges(fromContextDidSave: transaction.objectIDNotification())
+        isProcessingHistory = true
+        Task {
+            repeat {
+                historyNeedsAnotherPass = false
+                await processRemoteChanges()
+            } while historyNeedsAnotherPass
+            isProcessingHistory = false
         }
-        lastHistoryToken = transactions.last?.token
-        Self.saveHistoryToken(lastHistoryToken)
     }
 
-    private static func loadHistoryToken() -> NSPersistentHistoryToken? {
-        let url = NSPersistentContainer.defaultDirectoryURL().appendingPathComponent("historyToken.data")
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSPersistentHistoryToken.self, from: data)
+    /// Fetches the stores' new history off the main thread, skipping our own transactions,
+    /// and merges it into the view context in one pass. Live sync depends on this
+    /// (CLAUDE.md): `automaticallyMergesChangesFromParent` alone doesn't refresh the UI.
+    private func processRemoteChanges() async {
+        let stores = [_privatePersistentStore, _sharedPersistentStore].compactMap { $0 }
+        let context = historyContext
+        let tokens = historyTokens
+        let (changes, newTokens) = await context.perform {
+            Self.fetchHistory(in: context, stores: stores, after: tokens)
+        }
+        historyTokens = newTokens
+        guard !changes.isEmpty else { return }
+        NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes.userInfo, into: [viewContext])
     }
 
-    private static func saveHistoryToken(_ token: NSPersistentHistoryToken?) {
-        let url = NSPersistentContainer.defaultDirectoryURL().appendingPathComponent("historyToken.data")
-        guard let token,
-              let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else { return }
-        try? data.write(to: url)
+    /// Object IDs changed by a batch of history transactions, ready for a single merge.
+    /// Built on `historyContext`'s queue, so it's nonisolated.
+    nonisolated private struct HistoryChanges {
+        var inserted = Set<NSManagedObjectID>()
+        var updated = Set<NSManagedObjectID>()
+        var deleted = Set<NSManagedObjectID>()
+
+        var isEmpty: Bool { inserted.isEmpty && updated.isEmpty && deleted.isEmpty }
+
+        var userInfo: [AnyHashable: Any] {
+            [NSInsertedObjectsKey: Array(inserted),
+             NSUpdatedObjectsKey: Array(updated),
+             NSDeletedObjectsKey: Array(deleted)]
+        }
+
+        mutating func add(_ change: NSPersistentHistoryChange) {
+            let id = change.changedObjectID
+            switch change.changeType {
+            case .insert: inserted.insert(id)
+            case .update: updated.insert(id)
+            case .delete:
+                deleted.insert(id)
+                inserted.remove(id)
+                updated.remove(id)
+            @unknown default: break
+            }
+        }
+    }
+
+    /// Runs on `historyContext`'s queue. Reads each store's history after its token, minus
+    /// our own transactions, and returns the changes plus the advanced tokens.
+    nonisolated private static func fetchHistory(
+        in context: NSManagedObjectContext,
+        stores: [NSPersistentStore],
+        after tokens: [String: NSPersistentHistoryToken]
+    ) -> (HistoryChanges, [String: NSPersistentHistoryToken]) {
+        var changes = HistoryChanges()
+        var newTokens = tokens
+        for store in stores {
+            let request = NSPersistentHistoryChangeRequest.fetchHistory(after: tokens[store.identifier])
+            if let transactionRequest = NSPersistentHistoryTransaction.fetchRequest {
+                transactionRequest.predicate = NSPredicate(
+                    format: "author == nil OR author != %@", appTransactionAuthor)
+                request.fetchRequest = transactionRequest
+            }
+            request.affectedStores = [store]
+            guard let result = try? context.execute(request) as? NSPersistentHistoryResult,
+                  let transactions = result.result as? [NSPersistentHistoryTransaction],
+                  let last = transactions.last else { continue }
+            for transaction in transactions {
+                for change in transaction.changes ?? [] {
+                    changes.add(change)
+                }
+            }
+            newTokens[store.identifier] = last.token
+        }
+        return (changes, newTokens)
     }
 
     // MARK: - Export
