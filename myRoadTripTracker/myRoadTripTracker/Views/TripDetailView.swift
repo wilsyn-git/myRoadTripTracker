@@ -101,15 +101,22 @@ struct TripDetailView: View {
                     }
                 }
             }
-            ToolbarItem(placement: .secondaryAction) {
-                // The sheet opens at once; a new share is made after a destination is picked (#44).
-                ShareLink(
-                    item: TripShareItem(tripID: trip.objectID, existingShare: tripShare),
-                    preview: SharePreview(trip.name)
-                ) {
-                    Label("Share Trip", systemImage: "square.and.arrow.up")
+            // Only owners share. `isOwner(of:)` needs no fetch, so asking it here (rather than
+            // the `isOwner` state, which starts out true) keeps the button from flashing up
+            // for a participant.
+            if persistenceController.isOwner(of: trip) {
+                // Its own bar button, not an item in the overflow menu: the share sheet
+                // presents as a popover anchored to this button. From the menu it had no
+                // anchor once the menu closed, and UIKit threw (#62).
+                ToolbarItem(placement: .primaryAction) {
+                    // The sheet opens at once; a new share is made after a destination is picked (#44).
+                    ShareLink(
+                        item: TripShareItem(tripID: trip.objectID, existingShare: tripShare),
+                        preview: SharePreview(trip.name)
+                    ) {
+                        Label("Share Trip", systemImage: "square.and.arrow.up")
+                    }
                 }
-                .disabled(!isOwner)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
