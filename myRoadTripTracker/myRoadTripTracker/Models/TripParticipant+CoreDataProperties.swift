@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-extension TripParticipant {
+nonisolated extension TripParticipant {
     @nonobjc public class func fetchRequest() -> NSFetchRequest<TripParticipant> {
         return NSFetchRequest<TripParticipant>(entityName: "TripParticipant")
     }
@@ -12,4 +12,4 @@ extension TripParticipant {
     @NSManaged public var trip: Trip?
 }
 
-extension TripParticipant: Identifiable {}
+nonisolated extension TripParticipant: Identifiable {}

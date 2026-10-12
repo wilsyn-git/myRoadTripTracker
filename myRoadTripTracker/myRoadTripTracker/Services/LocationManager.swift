@@ -153,9 +153,11 @@ extension LocationManager: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        // Read the status here: the manager isn't Sendable, so it can't go into the task.
+        let status = manager.authorizationStatus
         Task { @MainActor in
-            self.authorizationStatus = manager.authorizationStatus
-            self.resumeAuthorizationContinuations(with: manager.authorizationStatus)
+            self.authorizationStatus = status
+            self.resumeAuthorizationContinuations(with: status)
         }
     }
 }

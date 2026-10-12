@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-extension Trip {
+nonisolated extension Trip {
     @nonobjc public class func fetchRequest() -> NSFetchRequest<Trip> {
         return NSFetchRequest<Trip>(entityName: "Trip")
     }
@@ -19,7 +19,7 @@ extension Trip {
 
 // MARK: - Convenience Accessors
 
-extension Trip: Identifiable {
+nonisolated extension Trip: Identifiable {
     var plateSightingsArray: [PlateSighting] {
         let set = plateSightings as? Set<PlateSighting> ?? []
         return set.sorted { ($0.seenDate ?? .distantPast) < ($1.seenDate ?? .distantPast) }
@@ -37,7 +37,7 @@ extension Trip: Identifiable {
 }
 
 // MARK: - Generated accessors for plateSightings
-extension Trip {
+nonisolated extension Trip {
     @objc(addPlateSightingsObject:)
     @NSManaged public func addToPlateSightings(_ value: PlateSighting)
 
@@ -52,7 +52,7 @@ extension Trip {
 }
 
 // MARK: - Generated accessors for observationEntries
-extension Trip {
+nonisolated extension Trip {
     @objc(addObservationEntriesObject:)
     @NSManaged public func addToObservationEntries(_ value: ObservationEntry)
 
@@ -67,7 +67,7 @@ extension Trip {
 }
 
 // MARK: - Generated accessors for participants
-extension Trip {
+nonisolated extension Trip {
     @objc(addParticipantsObject:)
     @NSManaged public func addToParticipants(_ value: TripParticipant)
 
