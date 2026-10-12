@@ -13,10 +13,15 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(PersistenceController.self) private var persistenceController
 
-    /// Every trip. `TripListSections` groups and orders them by activity (#65); this sort
-    /// only keeps the fetch stable.
+    /// Every trip. `TripListSections` groups and orders them by activity (#65). The fetch sorts
+    /// by `isClosed` first so closing or reopening a trip moves it within the results: a plain
+    /// attribute change doesn't republish the fetch, and the list would keep the trip in its
+    /// old section until something else changed.
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)],
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \Trip.isClosed, ascending: true),
+            NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false),
+        ],
         animation: .default
     )
     private var trips: FetchedResults<Trip>
@@ -220,12 +225,49 @@ struct ContentView: View {
         NavigationLink(value: trip.objectID) {
             TripRow(trip: trip, isShared: isShared(trip))
         }
+        .swipeActions(edge: .leading) {
+            if persistenceController.isOwner(of: trip) {
+                closeButton(trip)
+                    .tint(trip.isClosed ? Theme.green : .gray)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            // Red by tint, not `role: .destructive`: a destructive swipe makes List animate
+            // the row away at once, before the confirmation alert is answered.
+            if persistenceController.isOwner(of: trip) {
+                Button { confirmDelete(trip) } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .tint(.red)
+            } else {
+                Button { confirmLeave(trip) } label: {
+                    Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+                .tint(.red)
+            }
+        }
         .contextMenu { tripMenu(trip) }
     }
 
+    private func closeButton(_ trip: Trip) -> some View {
+        Button {
+            withAnimation {
+                TripLifecycle.setClosed(!trip.isClosed, for: trip, in: viewContext)
+            }
+        } label: {
+            Label(
+                trip.isClosed ? "Reopen Trip" : "Close Trip",
+                systemImage: trip.isClosed ? "lock.open" : "lock"
+            )
+        }
+    }
+
+    /// The same actions as the swipes and the trip screen; destructive last (HIG).
     @ViewBuilder
     private func tripMenu(_ trip: Trip) -> some View {
         if persistenceController.isOwner(of: trip) {
+            closeButton(trip)
+            Divider()
             Button(role: .destructive) { confirmDelete(trip) } label: {
                 Label("Delete Trip", systemImage: "trash")
             }
