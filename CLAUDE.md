@@ -58,7 +58,7 @@ The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** 
   - Each pass ends in a single `NSManagedObjectContext.mergeChanges(fromRemoteContextSave:into: [viewContext])`.
   - `automaticallyMergesChangesFromParent` alone is **not** sufficient for live UI updates from CloudKit pushes; the history processor is what makes real-time sync work.
   - Any context the app saves from must set `transactionAuthor = PersistenceController.appTransactionAuthor`, or its saves get merged back redundantly.
-- "Am I the owner of this trip?" is answered by `privatePersistentStore.contains(managedObject: trip)`. Helpers in `Services/CoreDataHelpers.swift`.
+- "Am I the owner of this trip?" is answered by `PersistenceController.isOwner(of:)`, which compares the saved trip's `objectID.persistentStore` to the private store (no fetch). Only an unsaved trip falls back to `privatePersistentStore.contains(managedObject:)`, defined in `Services/CoreDataHelpers.swift`.
 - Share creation: `container.share([trip], to: nil)` → `persistUpdatedShare(share, in: privatePersistentStore)` (must be `await`ed via `withCheckedThrowingContinuation` before returning the `CKShare` to the UI, or share URL/metadata will be missing) → present via `UIActivityViewController`.
 - Share acceptance is split between **`AppDelegate.swift`** (which contains the `SceneDelegate`) handling both `windowScene(_:userDidAcceptCloudKitShareWith:)` (running) and `scene(_:willConnectTo:options:)` (cold launch). Calls `container.acceptShareInvitations(from:into: sharedPersistentStore)`. **Both methods are required** — implementing only one drops cold-launch acceptances.
 - `Info.plist` must contain `CKSharingSupported = true`. Without it, tapping a share URL shows "newer version needed."
