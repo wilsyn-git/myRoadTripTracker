@@ -1,5 +1,6 @@
-import SwiftUI
+import CloudKit
 import CoreData
+import SwiftUI
 
 @main
 struct myRoadTripTrackerApp: App {
@@ -33,8 +34,17 @@ struct myRoadTripTrackerApp: App {
             .task {
                 appDelegate.persistenceController = persistenceController
             }
+            .task {
+                // Keeps the cached iCloud user ID current, so opening a trip never waits on
+                // CloudKit and a different iCloud account replaces the old ID (#36).
+                await CloudKitUserHelper.refresh()
+                for await _ in NotificationCenter.default.notifications(named: .CKAccountChanged) {
+                    CloudKitUserHelper.clearCache()
+                    await CloudKitUserHelper.refresh()
+                }
+            }
             .onChange(of: scenePhase, initial: true) { _, phase in
-                // Pins for voice marks Siri saved without a location fix.
+                // Pins for plates saved without a location fix (Siri marks, taps whose fix never came).
                 guard phase == .active, persistenceController.setupError == nil else { return }
                 Task { await PinBackfill.run(in: persistenceController.viewContext) }
             }

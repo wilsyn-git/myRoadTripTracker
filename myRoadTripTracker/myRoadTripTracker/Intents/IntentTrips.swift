@@ -100,8 +100,10 @@ enum IntentTrips {
 
     /// The name a tap would credit: your display name on this trip, else the
     /// default display name, else "Me". Never creates a `TripParticipant`.
-    static func speakerName(for trip: Trip, userID: String) -> String {
-        if let participant = trip.participantsArray.first(where: { $0.cloudKitUserID == userID }),
+    /// `userID` is nil when it can't be known right now (see `CloudKitUserHelper`).
+    static func speakerName(for trip: Trip, userID: String?) -> String {
+        if let userID,
+           let participant = trip.participantsArray.first(where: { $0.cloudKitUserID == userID }),
            let name = IntentAnswers.cleanName(participant.displayName) {
             return name
         }
