@@ -69,6 +69,16 @@ struct TripCardView: View {
         return generated > lastViewed
     }
 
+    /// "US 6/51": a small region label, then the count in the caller's font.
+    private func regionCount(_ region: String, seen: Int, total: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(region)
+                .font(.caption2.weight(.medium))
+                .opacity(0.7)
+            Text("\(seen)/\(total)")
+        }
+    }
+
     private var cardColor: Color {
         trip.isClosed ? Theme.closedGray : Theme.green
     }
@@ -136,7 +146,7 @@ struct TripCardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             if !data.recentSightings.isEmpty {
                 HStack(spacing: -4) {
@@ -156,16 +166,25 @@ struct TripCardView: View {
                 .accessibilityHidden(true)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            DualProgressRingView(
-                usProgress: Self.usTotalCount > 0 ? Double(data.usSeenCount) / Double(Self.usTotalCount) : 0,
-                usSeenCount: data.usSeenCount,
-                usTotalCount: Self.usTotalCount,
-                caProgress: Self.caTotalCount > 0 ? Double(data.caSeenCount) / Double(Self.caTotalCount) : 0,
-                caSeenCount: data.caSeenCount,
-                caTotalCount: Self.caTotalCount
-            )
+            HStack(spacing: 10) {
+                DualProgressRingView(
+                    usProgress: Self.usTotalCount > 0 ? Double(data.usSeenCount) / Double(Self.usTotalCount) : 0,
+                    usSeenCount: data.usSeenCount,
+                    caProgress: Self.caTotalCount > 0 ? Double(data.caSeenCount) / Double(Self.caTotalCount) : 0,
+                    caSeenCount: data.caSeenCount
+                )
+                VStack(alignment: .leading, spacing: 0) {
+                    regionCount("US", seen: data.usSeenCount, total: Self.usTotalCount)
+                        .font(.subheadline.weight(.bold))
+                    regionCount("CA", seen: data.caSeenCount, total: Self.caTotalCount)
+                        .font(.footnote.weight(.semibold))
+                        .opacity(0.85)
+                }
+                .fontDesign(.rounded)
+                Spacer(minLength: 0)
+            }
         }
         .foregroundStyle(.white)
         .padding()

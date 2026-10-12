@@ -63,10 +63,9 @@ private struct TripRing: View {
         DualProgressRingView(
             usProgress: Double(trip.usSeen) / Double(usTotal),
             usSeenCount: trip.usSeen,
-            usTotalCount: usTotal,
             caProgress: Double(trip.caSeen) / Double(caTotal),
             caSeenCount: trip.caSeen,
-            caTotalCount: caTotal
+            diameter: 64
         )
     }
 }
