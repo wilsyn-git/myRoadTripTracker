@@ -13,18 +13,19 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(PersistenceController.self) private var persistenceController
 
-    /// Every trip. `TripListSections` groups and orders them by activity (#65). The fetch sorts
-    /// by `isClosed` first so closing or reopening a trip moves it within the results: a plain
-    /// attribute change doesn't republish the fetch, and the list would keep the trip in its
-    /// old section until something else changed.
+    /// Every trip. `TripListSections` groups and orders them by activity (#65); this sort
+    /// only keeps the fetch stable.
     @FetchRequest(
-        sortDescriptors: [
-            NSSortDescriptor(keyPath: \Trip.isClosed, ascending: true),
-            NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false),
-        ],
+        sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)],
         animation: .default
     )
     private var trips: FetchedResults<Trip>
+
+    /// Bumped whenever a trip or sighting changes in the view context, so the list regroups
+    /// right away: closing or reopening, a plate marked here, or one merged in from a
+    /// collaborator or Siri. Reading managed objects in `body` doesn't subscribe to them, and
+    /// the fetch only republishes inserts, deletes and moves (#65).
+    @State private var listRevision = 0
 
     @State private var navigationPath = NavigationPath()
     @State private var newlyCreatedTrip: Trip?
@@ -105,6 +106,7 @@ struct ContentView: View {
     }
 
     private var tripList: some View {
+        _ = listRevision // Read so a bump re-runs this body; see `listRevision`.
         let sections = TripListSections(trips: trips, matching: searchText)
         return List {
             if let hero = sections.hero {
@@ -219,6 +221,20 @@ struct ContentView: View {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             TripSpotterShortcuts.updateAppShortcutParameters()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: viewContext)
+        ) { note in
+            if changesTripOrSighting(note) { listRevision &+= 1 }
+        }
+    }
+
+    /// Whether the change touched what the list ranks by: a trip itself or its plate sightings (#65).
+    private func changesTripOrSighting(_ note: Notification) -> Bool {
+        let keys = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey, NSRefreshedObjectsKey]
+        return keys.contains { key in
+            guard let objects = note.userInfo?[key] as? Set<NSManagedObject> else { return false }
+            return objects.contains { $0 is Trip || $0 is PlateSighting }
+        }
     }
 
     private func tripRow(_ trip: Trip) -> some View {
@@ -249,6 +265,7 @@ struct ContentView: View {
         .contextMenu { tripMenu(trip) }
     }
 
+    /// Close or reopen, shared by the leading swipe and the long-press menu (#65).
     private func closeButton(_ trip: Trip) -> some View {
         Button {
             withAnimation {
@@ -262,7 +279,7 @@ struct ContentView: View {
         }
     }
 
-    /// The same actions as the swipes and the trip screen; destructive last (HIG).
+    /// The same actions as the swipes and the trip screen; destructive last (HIG) (#65).
     @ViewBuilder
     private func tripMenu(_ trip: Trip) -> some View {
         if persistenceController.isOwner(of: trip) {
