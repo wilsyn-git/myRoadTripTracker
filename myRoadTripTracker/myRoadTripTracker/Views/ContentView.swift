@@ -47,8 +47,7 @@ struct ContentView: View {
             tripList
                 .alert("Delete Trip", isPresented: $showingDeleteAlert, presenting: tripToDelete) { trip in
                     Button("Delete", role: .destructive) {
-                        viewContext.delete(trip)
-                        viewContext.save(contextInfo: "deleteTrip")
+                        TripLifecycle.delete(trip, in: viewContext)
                         tripToDelete = nil
                     }
                     Button("Cancel", role: .cancel) {
@@ -143,7 +142,8 @@ struct ContentView: View {
                     onLeave: { name in
                         navigationPath = NavigationPath()
                         confirmLeft(name)
-                    }
+                    },
+                    onDelete: deleteAfterPop
                 )
             }
         }
@@ -216,6 +216,17 @@ struct ContentView: View {
 
     private func confirmLeft(_ name: String) {
         withAnimation { leftTripName = name }
+    }
+
+    /// Deletes a trip its own screen asked to delete, once that screen is gone (#65).
+    private func deleteAfterPop(_ objectID: NSManagedObjectID) {
+        navigationPath = NavigationPath()
+        Task {
+            // Lets the pop animation finish before the trip disappears under it.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard let trip = try? viewContext.existingObject(with: objectID) as? Trip else { return }
+            TripLifecycle.delete(trip, in: viewContext)
+        }
     }
 
     /// Shows the next what's-new card when the trip list is on screen with nothing

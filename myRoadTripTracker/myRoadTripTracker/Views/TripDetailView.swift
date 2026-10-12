@@ -14,13 +14,16 @@ struct TripDetailView: View {
     @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
     let onLeave: (String) -> Void
+    /// Asks the trip list to delete this trip after popping back to it; deleting it while
+    /// this screen still shows it would crash on the deleted trip's name (#65).
+    let onDelete: (NSManagedObjectID) -> Void
+    @State private var showingDeleteAlert = false
     @State private var showingNamePrompt = false
     @State private var resolvedDisplayName: String?
     @State private var cloudKitUserID: String = ""
     @State private var showingParticipants = false
     @State private var showingMapView = false
     @State private var showingRecap = false
-    @State private var isGeneratingRecap = false
     @State private var isOwner = true
     @State private var plateFilter: PlateFilter = .all
 
@@ -145,12 +148,7 @@ struct TripDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
-                    let wasClosed = trip.isClosed
-                    trip.isClosed.toggle()
-                    viewContext.save(contextInfo: "toggleClosed")
-                    if !wasClosed {
-                        Task { await generateRecap() }
-                    }
+                    TripLifecycle.setClosed(!trip.isClosed, for: trip, in: viewContext)
                 } label: {
                     Label(
                         trip.isClosed ? "Reopen Trip" : "Close Trip",
@@ -158,6 +156,15 @@ struct TripDetailView: View {
                     )
                 }
                 .disabled(!isOwner)
+            }
+            if persistenceController.isOwner(of: trip) {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(role: .destructive) {
+                        showingDeleteAlert = true
+                    } label: {
+                        Label("Delete Trip", systemImage: "trash")
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingParticipants) {
@@ -174,6 +181,12 @@ struct TripDetailView: View {
         .sheet(isPresented: $showingRecap) {
             TripRecapView(trip: trip)
         }
+        .alert("Delete Trip", isPresented: $showingDeleteAlert) {
+            Button("Delete", role: .destructive) { onDelete(trip.objectID) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this trip? This cannot be undone.")
+        }
         .sheet(isPresented: $showingNamePrompt) {
             JoinTripNameView(trip: trip) { name in
                 let participant = TripParticipant(
@@ -187,21 +200,5 @@ struct TripDetailView: View {
                 showingNamePrompt = false
             }
         }
-    }
-
-    @MainActor
-    private func generateRecap() async {
-        guard isOwner, !isGeneratingRecap else { return }
-        let stats = RecapStats(trip: trip)
-        guard !stats.isEmpty else { return }
-        isGeneratingRecap = true
-        defer { isGeneratingRecap = false }
-        let narrative = await RecapNarrativeGenerator.generate(from: stats, tripName: trip.name)
-        // Back on the main actor after the await. recapGeneratedDate is stamped even when
-        // the model is unavailable (narrative == nil) so the "recap ready" badge appears
-        // for everyone; TripRecapView falls back to the template narrative.
-        if let narrative { trip.recapNarrative = narrative }
-        trip.recapGeneratedDate = Date()
-        viewContext.save(contextInfo: "generateRecap")
     }
 }
