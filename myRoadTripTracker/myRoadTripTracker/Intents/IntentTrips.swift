@@ -31,7 +31,7 @@ enum IntentTrips {
 
     static var context: NSManagedObjectContext { PersistenceController.shared.viewContext }
 
-    /// Every trip, open first, newest first (the trip list's order).
+    /// Every trip, open first, newest first.
     static func allTrips() throws -> [Trip] {
         guard PersistenceController.shared.setupError == nil else { throw IntentFailure.storeUnavailable }
         let request = Trip.fetchRequest()
@@ -62,10 +62,11 @@ enum IntentTrips {
         return current
     }
 
-    /// Spec, "Decisions": the open trip with the most recent activity — latest
-    /// sighting, else creation date.
+    /// Spec, "Decisions": the open trip with the most recent activity (latest sighting,
+    /// else creation date). Ties resolve the same way every time (#14), and the trip list's
+    /// hero uses the same rule (#65).
     static func currentTrip(in trips: [Trip]) -> Trip? {
-        trips.filter { !$0.isClosed }.max { lastActivity($0) < lastActivity($1) }
+        Trip.byRecentActivity(trips.filter { !$0.isClosed }).first?.trip
     }
 
     /// The trips Siri learns by name for "…on Miami…" phrases: open ones, plus any used
@@ -73,12 +74,7 @@ enum IntentTrips {
     /// so old trips are left out; with no trip named, the current trip still answers.
     static func suggestedTrips(now: Date = .now) throws -> [Trip] {
         let cutoff = now.addingTimeInterval(-30 * 24 * 3600)
-        return try allTrips().filter { !$0.isClosed || lastActivity($0) >= cutoff }
-    }
-
-    private static func lastActivity(_ trip: Trip) -> Date {
-        let sightings = (trip.plateSightings as? Set<PlateSighting>) ?? []
-        return sightings.compactMap(\.seenDate).max() ?? trip.createdDate ?? .distantPast
+        return try allTrips().filter { !$0.isClosed || $0.lastActivity >= cutoff }
     }
 
     static func snapshot(of trip: Trip) -> TripSnapshot {
