@@ -38,14 +38,11 @@ Each location gets one tile, sized via a `GridItem(.flexible(), spacing: 6)`, as
 - Green check badge top-right: `Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.caption)`, offset ~3pt from corners.
 - Soft elevation: `.shadow(color: .black.opacity(0.06), radius: 1, y: 1)`.
 
-### Recording-GPS state (transient)
+### Saving and locating (no transient state)
 
-While `LocationManager.requestCurrentLocation()` is in flight for *this* tile:
+A tap saves the sighting at once and the reveal plays immediately; the tap never waits for GPS (#35). If the phone's last known location is at most 60 s old and accurate to 100 m, the sighting is saved with it. Otherwise it is saved at `(0,0)` and one fresh fix (10 s timeout) fills in the coordinates when it arrives. If no fix comes in time, `PinBackfill` retries on the next app open. Until then the map plots the sighting as an interpolated "approximate location". The earlier blue "recording" ring is gone.
 
-- A thin (2pt) blue (`Color.blue`) ring traces around the tile's rounded-rect outline using a `Trim` from 0 → 1 over ~0.8s, repeating.
-- The flag itself stays greyscale until the location resolves; then the reveal animation starts.
-
-Other tiles remain interactive — the user can queue more plates while one is resolving.
+Taps on the tile are ignored while its reveal plays, so a quick double-tap doesn't open the detail sheet.
 
 ### Closed-trip state
 
@@ -58,18 +55,17 @@ When `trip.isClosed == true`:
 
 Sequence, all running on the same tile:
 
-1. **Tap intent** — light haptic (`UIImpactFeedbackGenerator(style: .soft).impactOccurred()`), tile scale dips to 0.95 (~80ms).
-2. **GPS fetch** — blue ring spinner described above.
-3. **On resolved location**, run all of the following in parallel:
+1. **Tap** — the sighting is saved (see "Saving and locating" above).
+2. **Immediately**, run all of the following in parallel:
    - Flag desaturates: `.grayscale` animates 1.0 → 0.0 over 250ms.
-   - Tile bounces: scale animates 0.95 → 1.15 → 1.10 → 1.0 over ~600ms via `.spring(response: 0.4, dampingFraction: 0.5)`.
+   - Tile presses and bounces: scale dips to 0.95 (~80ms), then springs back to 1.0 via `.spring(response: 0.4, dampingFraction: 0.5)` (chained with `withAnimation`'s completion).
    - Spark/confetti burst overlay (see below).
    - Success haptic (`UINotificationFeedbackGenerator().notificationOccurred(.success)`).
    - Green checkmark badge fades in (~150ms) at the end of the bounce.
 
 **Spark/confetti burst** — a `ZStack` overlay sized ~140% of the tile, containing 8 small filled `Circle`s in alternating amber (`#F59E0B`) and gold (`#FBBF24`), positioned around the tile center at 8 evenly distributed angles. Each animates: `scale 0 → 1` and `offset 0 → ~24pt outward` over ~500ms with ease-out, opacity `0 → 1 → 0`. Implemented with `withAnimation(.easeOut(duration: 0.5))` and `Transition`/`@State` flags. No SpriteKit, no Lottie — pure SwiftUI.
 
-The reveal also runs when GPS is **denied** — same animation, just with `(0,0)` as the stored coordinate. The user shouldn't be punished visually for declining permission.
+The reveal is the same whether GPS is allowed or **denied**; when denied, `(0,0)` stays the stored coordinate. The user shouldn't be punished visually for declining permission.
 
 ## 4. Tap on a seen tile → detail sheet
 
