@@ -65,10 +65,10 @@ struct PlateSightingsMapView: View {
                             .clipShape(.rect(cornerRadius: 2))
                             .shadow(radius: 2)
                             .opacity(item.isInterpolated ? 0.6 : 1.0)
-                            .overlay(
+                            .overlay {
                                 RoundedRectangle(cornerRadius: 2)
                                     .stroke(selectedSighting?.objectID == item.sighting.objectID ? Color.accentColor : Color.white, lineWidth: 1.5)
-                            )
+                            }
                             .onTapGesture {
                                 withAnimation {
                                     selectedSighting = item.sighting

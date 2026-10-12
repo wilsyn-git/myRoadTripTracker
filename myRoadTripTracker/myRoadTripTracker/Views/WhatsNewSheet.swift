@@ -7,8 +7,6 @@ struct WhatsNewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private static let green = Color(red: 0.2, green: 0.65, blue: 0.35)
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -17,15 +15,15 @@ struct WhatsNewSheet: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Self.green.gradient, in: .circle)
+                        .background(Theme.green.gradient, in: .circle)
                         .accessibilityHidden(true)
                     Text("NEW")
                         .font(.caption2.weight(.heavy))
                         .tracking(1.2)
-                        .foregroundStyle(Self.green)
+                        .foregroundStyle(Theme.green)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Self.green.opacity(0.15), in: .capsule)
+                        .background(Theme.green.opacity(0.15), in: .capsule)
                         .accessibilityHidden(true)
                 }
                 Text(announcement.title)
@@ -73,7 +71,7 @@ struct WhatsNewSheet: View {
                 .padding(.vertical, 6)
         }
         .buttonStyle(.borderedProminent)
-        .tint(Self.green)
+        .tint(Theme.green)
         .controlSize(.large)
     }
 }

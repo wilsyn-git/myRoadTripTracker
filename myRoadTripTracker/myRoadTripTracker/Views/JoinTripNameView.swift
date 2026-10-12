@@ -12,7 +12,7 @@ struct JoinTripNameView: View {
             VStack(spacing: 24) {
                 Text("Joining \"\(trip.name)\"")
                     .font(.title2)
-                    .fontWeight(.bold)
+                    .bold()
 
                 Text("What should other participants call you on this trip?")
                     .foregroundStyle(.secondary)

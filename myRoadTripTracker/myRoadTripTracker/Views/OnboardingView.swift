@@ -15,15 +15,17 @@ struct OnboardingView: View {
                 .foregroundStyle(.tint)
 
             VStack(spacing: 8) {
-                Text("Welcome to Road Trip Tracker")
+                Text("Welcome to TripSpotter")
                     .font(.title)
-                    .fontWeight(.bold)
+                    .bold()
                     .multilineTextAlignment(.center)
 
                 Text("Track license plates, record observations, and share the adventure with friends.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    // With the keyboard up the spacers shrink, not this text.
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal)
             }
 
@@ -44,11 +46,10 @@ struct OnboardingView: View {
                 Text("Get Started")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(.rect(cornerRadius: 14))
+                    .padding(.vertical, 6)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .padding(.horizontal, 32)
             .padding(.bottom, 32)

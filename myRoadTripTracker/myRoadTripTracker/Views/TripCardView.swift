@@ -69,7 +69,7 @@ struct TripCardView: View {
     }
 
     private var cardColor: Color {
-        trip.isClosed ? Color(white: 0.38) : Color(red: 0.2, green: 0.65, blue: 0.35)
+        trip.isClosed ? Theme.closedGray : Theme.green
     }
 
     var body: some View {
@@ -80,7 +80,7 @@ struct TripCardView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(trip.name)
                     .font(.title3)
-                    .fontWeight(.bold)
+                    .bold()
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
 
@@ -145,10 +145,10 @@ struct TripCardView: View {
                             .scaledToFit()
                             .frame(width: 28, height: 18)
                             .clipShape(.rect(cornerRadius: 2))
-                            .overlay(
+                            .overlay {
                                 RoundedRectangle(cornerRadius: 2)
                                     .stroke(.white.opacity(0.6), lineWidth: 1)
-                            )
+                            }
                     }
                     Spacer()
                 }

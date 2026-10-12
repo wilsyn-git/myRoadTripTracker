@@ -16,6 +16,8 @@ struct ComposeEntryRow: View {
     @State private var showingPhotoPicker = false
     @State private var saveError: String?
 
+    private static let hasCamera = UIImagePickerController.isSourceTypeAvailable(.camera)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let saveError {
@@ -54,10 +56,14 @@ struct ComposeEntryRow: View {
                     } label: {
                         Label("Photo Library", systemImage: "photo.on.rectangle")
                     }
-                    Button {
-                        showingCamera = true
-                    } label: {
-                        Label("Take Photo", systemImage: "camera")
+                    // Presenting the camera where there is none (e.g. the simulator) raises
+                    // an exception, so only offer it when it exists.
+                    if Self.hasCamera {
+                        Button {
+                            showingCamera = true
+                        } label: {
+                            Label("Take Photo", systemImage: "camera")
+                        }
                     }
                 } label: {
                     Image(systemName: "paperclip")

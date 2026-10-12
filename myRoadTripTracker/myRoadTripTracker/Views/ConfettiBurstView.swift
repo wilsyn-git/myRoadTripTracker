@@ -4,10 +4,7 @@ struct ConfettiBurstView: View {
     @State private var animate = false
 
     private let particleCount = 8
-    private let colors: [Color] = [
-        Color(red: 0.96, green: 0.62, blue: 0.04),
-        Color(red: 0.98, green: 0.75, blue: 0.15)
-    ]
+    private let colors: [Color] = [Theme.amber, Theme.gold]
 
     var body: some View {
         ZStack {
