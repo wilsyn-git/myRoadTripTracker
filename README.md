@@ -35,7 +35,7 @@ Both stores use the same Core Data model. The container handles bidirectional sy
 **Owner shares a trip:**
 1. `NSPersistentCloudKitContainer.share([trip], to: nil)` creates a `CKShare` + new CloudKit zone
 2. The entire object graph (sightings, observations, participants) moves into the share's zone
-3. Share URL presented via `UIActivityViewController`
+3. Shared from a `ShareLink` (`CKShareTransferRepresentation`); the system sheet opens at once and the share is made after a destination is picked
 
 **Participant accepts:**
 1. `SceneDelegate` receives `CKShare.Metadata`
@@ -100,7 +100,7 @@ myRoadTripTracker/
     ├── PlateSightingsSection.swift         # Plate checklist
     ├── PlateSightingsMapView.swift         # Map of sightings
     ├── ObservationsSection.swift           # Category-organized notes
-    ├── CloudSharingView.swift             # Share sheet
+    ├── TripShareItem.swift                # ShareLink item (CKShare)
     ├── ParticipantsView.swift             # Participant management
     ├── Location.swift                     # 63 NA regions (states/provinces/territories)
     ├── LocationManager.swift              # One-shot GPS

@@ -1,3 +1,4 @@
+import CloudKit
 import SwiftUI
 import CoreData
 
@@ -8,7 +9,8 @@ struct TripDetailView: View {
     @Environment(PersistenceController.self) private var persistenceController
     @State private var locationManager = LocationManager()
     @State private var selectedTab: TripTab = .plates
-    @State private var showingSharingSheet = false
+    /// The trip's CloudKit share when the screen opened, so the share sheet can show it as is.
+    @State private var tripShare: CKShare?
     @AppStorage("defaultDisplayName") private var currentUserName = "Me"
     let isNewTrip: Bool
     let onLeave: (String) -> Void
@@ -33,6 +35,8 @@ struct TripDetailView: View {
     /// (offline before it was ever fetched); the next open tries again.
     private func resolveParticipant() async {
         isOwner = persistenceController.isOwner(of: trip)
+        // A local lookup, no network. Only owners can share.
+        tripShare = isOwner ? persistenceController.existingShare(for: trip) : nil
         guard let userID = await CloudKitUserHelper.currentUserID(),
               !trip.isDeleted, trip.managedObjectContext != nil else { return }
         cloudKitUserID = userID
@@ -98,9 +102,11 @@ struct TripDetailView: View {
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    showingSharingSheet = true
-                } label: {
+                // The sheet opens at once; a new share is made after a destination is picked (#44).
+                ShareLink(
+                    item: TripShareItem(tripID: trip.objectID, existingShare: tripShare),
+                    preview: SharePreview(trip.name)
+                ) {
                     Label("Share Trip", systemImage: "square.and.arrow.up")
                 }
                 .disabled(!isOwner)
@@ -147,7 +153,6 @@ struct TripDetailView: View {
                 .disabled(!isOwner)
             }
         }
-        .cloudSharingSheet(for: trip, persistenceController: persistenceController, isPresented: $showingSharingSheet)
         .sheet(isPresented: $showingParticipants) {
             ParticipantsView(
                 trip: trip,

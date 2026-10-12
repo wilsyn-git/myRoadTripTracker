@@ -55,7 +55,7 @@ NSManagedObject subclasses live in `CoreDataModels/<Entity>+CoreDataClass.swift`
 **Owner shares:**
 1. `container.share([trip], to: nil)` → creates `CKShare` + new CloudKit zone, moves object graph in
 2. `persistUpdatedShare(share, in: privatePersistentStore)` (must be awaited via `withCheckedThrowingContinuation` before returning the share to the UI)
-3. Share URL → `UIActivityViewController`
+3. `ShareLink` + `TripShareItem` (`CKShareTransferRepresentation`): the system sheet opens at once and runs steps 1–2 only after a destination is picked (#44)
 4. `CKSharingSupported = true` in Info.plist (mandatory for URL acceptance)
 
 **Participant accepts:**
@@ -73,7 +73,7 @@ NSManagedObject subclasses live in `CoreDataModels/<Entity>+CoreDataClass.swift`
 - **Trip detail:** `TripDetailView.swift`
 - **Plates:** `PlateSightingsSection.swift` (grouped checklist + toolbar map button + plate filter dropdown), `PlateSightingsMapView.swift` (flag annotations, interpolation)
 - **Observations:** `ObservationsSection.swift`, `ObservationRow.swift` (append-only with author attribution)
-- **Sharing UI:** `CloudSharingView.swift`, `ParticipantsView.swift`, `JoinTripNameView.swift`
+- **Sharing UI:** `ShareLink` in `TripDetailView.swift` with `Services/TripShareItem.swift`; `ParticipantsView.swift` (owner Remove revokes CloudKit access, #30); `JoinTripNameView.swift`
 - **Identity / location:** `OnboardingView.swift`, `CloudKitUserHelper.swift`, `LocationManager.swift` (one-shot only)
 - **Static data:** `Location.swift` (50 US states + 10 CA provinces + 3 territories = 63 regions)
 

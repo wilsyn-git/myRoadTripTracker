@@ -59,7 +59,8 @@ The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** 
   - `automaticallyMergesChangesFromParent` alone is **not** sufficient for live UI updates from CloudKit pushes; the history processor is what makes real-time sync work.
   - Any context the app saves from must set `transactionAuthor = PersistenceController.appTransactionAuthor`, or its saves get merged back redundantly.
 - "Am I the owner of this trip?" is answered by `PersistenceController.isOwner(of:)`, which compares the saved trip's `objectID.persistentStore` to the private store (no fetch). Only an unsaved trip falls back to `privatePersistentStore.contains(managedObject:)`, defined in `Services/CoreDataHelpers.swift`.
-- Share creation: `container.share([trip], to: nil)` → `persistUpdatedShare(share, in: privatePersistentStore)` (must be `await`ed via `withCheckedThrowingContinuation` before returning the `CKShare` to the UI, or share URL/metadata will be missing) → present via `UIActivityViewController`.
+- Share creation: the trip screen's `ShareLink` shares a `TripShareItem` (`Services/TripShareItem.swift`, a `CKShareTransferRepresentation`). The system sheet opens at once. A trip that already has a share uses `.existing`; otherwise, after a destination is picked, the preparation handler calls `PersistenceController.shareTrip`: `container.share([trip], to: nil)` → title + `publicPermission = .readWrite` → `persistUpdatedShare(share, in: privatePersistentStore)` (must be `await`ed via `withCheckedThrowingContinuation` before returning the `CKShare`, or share URL/metadata will be missing). The sheet's sharing options are pinned to anyone-with-link / can-edit to match.
+- Owner removal: Remove in `ParticipantsView` calls `revokeAccess(to:forUserID:)`, which takes the matching `CKShare` participant off the share (matched by user record name), then deletes the `TripParticipant` row. There is deliberately **no `UICloudSharingController`**: its Stop Sharing button may purge the owner's own trip on current iOS (unverified, #59).
 - Share acceptance is split between **`AppDelegate.swift`** (which contains the `SceneDelegate`) handling both `windowScene(_:userDidAcceptCloudKitShareWith:)` (running) and `scene(_:willConnectTo:options:)` (cold launch). Calls `container.acceptShareInvitations(from:into: sharedPersistentStore)`. **Both methods are required** — implementing only one drops cold-launch acceptances.
 - `Info.plist` must contain `CKSharingSupported = true`. Without it, tapping a share URL shows "newer version needed."
 - `CKShare.publicPermission = .readWrite` is set so URL recipients can join. Existing shares created with `.none` need this explicitly updated — do not assume new code paths will fix old shares.
@@ -74,9 +75,9 @@ Intents/     App Intents for Siri/Spotlight: PlateRegion, TripEntity, the six
 Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entities)
 Services/    PersistenceController, CoreDataHelpers, CloudKitUserHelper,
              LocationManager, Location (64 NA regions), ImageProcessor,
-             IntentRoute, WhatsNew
+             IntentRoute, WhatsNew, TripShareItem
 Views/       SwiftUI views (ContentView, TripCardView, TripDetailView,
-             PlateSightings*, Observations*, CloudSharingView, ...)
+             PlateSightings*, Observations*, ParticipantsView, ...)
 Resources/   Info.plist, .entitlements, .xcdatamodeld, Assets.xcassets,
              PrivacyInfo.xcprivacy
 ```

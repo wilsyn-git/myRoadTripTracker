@@ -126,5 +126,5 @@ One row per person who is part of the trip. Drives the `person.2.fill` badge on 
 - `Views/PlateSightingsGrid.swift` — the tap-to-mark grid inside the detail view.
 - `Views/PlateSightingsMapView.swift` — sightings map.
 - `Views/ObservationsSection.swift`, `ObservationRow.swift` — observations UI.
-- `Views/ParticipantsView.swift`, `CloudSharingView.swift`, `JoinTripNameView.swift` — sharing and participant naming.
+- `Views/ParticipantsView.swift`, `Services/TripShareItem.swift`, `JoinTripNameView.swift` — sharing and participant naming.
 - `Services/Location.swift` — canonical list of US states and Canadian provinces/territories used for counts.

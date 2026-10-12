@@ -11,7 +11,7 @@ final class PersistenceController {
 
     static let shared = PersistenceController()
 
-    static let cloudKitContainerID = "iCloud.com.tentenbits.myRoadTripTracker"
+    nonisolated static let cloudKitContainerID = "iCloud.com.tentenbits.myRoadTripTracker"
 
     let persistentContainer: NSPersistentCloudKitContainer
 
@@ -365,7 +365,17 @@ final class PersistenceController {
 
     // MARK: - Sharing
 
-    /// Share a trip. Returns the CKShare for presentation.
+    /// Shares the trip with this ID. `TripShareItem` calls this from the share sheet, which
+    /// can't carry the managed object itself.
+    func shareTrip(withID objectID: NSManagedObjectID) async throws -> CKShare {
+        guard let trip = try viewContext.existingObject(with: objectID) as? Trip else {
+            throw NSError(domain: "PersistenceController", code: 3,
+                          userInfo: [NSLocalizedDescriptionKey: "This trip no longer exists."])
+        }
+        return try await shareTrip(trip)
+    }
+
+    /// Share a trip. Returns the trip's existing share, or creates one.
     func shareTrip(_ trip: Trip) async throws -> CKShare {
         if let existingShare = existingShare(for: trip) {
             return existingShare
@@ -457,6 +467,38 @@ final class PersistenceController {
                     continuation.resume(); return                // owner / not a participant — never leave
                 }
                 share.removeParticipant(me)
+                container.persistUpdatedShare(share, in: store) { _, error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume() }
+                }
+            }
+        }
+    }
+
+    /// Takes a participant off the owner's CKShare for a trip, so they lose access (#30). The
+    /// person is matched by CloudKit user record name, the ID a `TripParticipant` stores.
+    /// Does nothing if they aren't on the share, e.g. a row saved with an offline stand-in ID.
+    /// Never removes the owner. Runs on a background context, like `leaveSharedTrip`.
+    func revokeAccess(to trip: Trip, forUserID userID: String) async throws {
+        let objectID = trip.objectID
+        guard let store = privatePersistentStore else {
+            throw NSError(domain: "PersistenceController", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: "Private store not loaded."])
+        }
+        let container = persistentContainer
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let bg = container.newBackgroundContext()
+            bg.perform {
+                guard let share = (try? container.fetchShares(matching: [objectID]))?[objectID] else {
+                    continuation.resume(); return                // not shared: nothing to revoke
+                }
+                guard let participant = share.participants.first(where: {
+                    $0.role != .owner && $0.userIdentity.userRecordID?.recordName == userID
+                }) else {
+                    logger.info("Revoke: no share participant matches this user ID; only the row is removed.")
+                    continuation.resume(); return
+                }
+                share.removeParticipant(participant)
                 container.persistUpdatedShare(share, in: store) { _, error in
                     if let error { continuation.resume(throwing: error) }
                     else { continuation.resume() }
