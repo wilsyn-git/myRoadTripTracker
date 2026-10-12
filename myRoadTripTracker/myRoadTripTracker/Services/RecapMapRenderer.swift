@@ -9,7 +9,7 @@ enum RecapMapRenderer {
         guard !coordinates.isEmpty else { return nil }
 
         let cacheKey = RecapMapCache.key(for: coordinates, size: size)
-        if let cached = RecapMapCache.image(for: cacheKey) {
+        if let cached = await RecapMapCache.image(for: cacheKey) {
             return cached
         }
 
@@ -21,8 +21,10 @@ enum RecapMapRenderer {
         let snapshotter = MKMapSnapshotter(options: options)
         do {
             let snapshot = try await snapshotter.start()
-            let image = draw(coords: coordinates, on: snapshot, size: size)
-            RecapMapCache.store(image, for: cacheKey)
+            // Map points are read here; the drawing and the cache write happen off main (#39).
+            let points = coordinates.map { snapshot.point(for: $0) }
+            let image = await drawPins(at: points, on: snapshot.image, size: size)
+            await RecapMapCache.store(image, for: cacheKey)
             return image
         } catch {
             #if DEBUG
@@ -49,17 +51,17 @@ enum RecapMapRenderer {
         return MKCoordinateRegion(center: center, span: span)
     }
 
-    private static func draw(coords: [CLLocationCoordinate2D],
-                             on snapshot: MKMapSnapshotter.Snapshot,
-                             size: CGSize) -> UIImage {
+    @concurrent
+    private nonisolated static func drawPins(at points: [CGPoint],
+                                             on mapImage: UIImage,
+                                             size: CGSize) async -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
-            snapshot.image.draw(at: .zero)
-            let imageSize = snapshot.image.size
+            mapImage.draw(at: .zero)
+            let imageSize = mapImage.size
             let cg = ctx.cgContext
             let pinRadius: CGFloat = 5
-            for coord in coords {
-                let point = snapshot.point(for: coord)
+            for point in points {
                 guard point.x >= 0, point.y >= 0, point.x <= imageSize.width, point.y <= imageSize.height else { continue }
                 let rect = CGRect(x: point.x - pinRadius, y: point.y - pinRadius,
                                   width: pinRadius * 2, height: pinRadius * 2)
