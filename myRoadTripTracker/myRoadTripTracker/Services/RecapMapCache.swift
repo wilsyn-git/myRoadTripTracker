@@ -4,7 +4,8 @@ import UIKit
 
 /// On-disk cache for rendered recap map images, keyed by a stable content hash of the
 /// coordinates + render size. Lives in the Caches directory (OS-purgeable). Pins only.
-enum RecapMapCache {
+/// File reads, PNG decoding and encoding run off the main actor (#39).
+nonisolated enum RecapMapCache {
 
     private static let folderName = "RecapMaps"
 
@@ -20,13 +21,15 @@ enum RecapMapCache {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    static func image(for key: String) -> UIImage? {
+    @concurrent
+    static func image(for key: String) async -> UIImage? {
         guard let url = fileURL(for: key),
               let data = try? Data(contentsOf: url) else { return nil }
-        return UIImage(data: data)
+        return UIImage(data: data)?.preparingForDisplay()
     }
 
-    static func store(_ image: UIImage, for key: String) {
+    @concurrent
+    static func store(_ image: UIImage, for key: String) async {
         guard let url = fileURL(for: key),
               let data = image.pngData() else { return }
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),

@@ -10,17 +10,11 @@ struct ComposeEntryRow: View {
     @State private var text = ""
     @FocusState private var isFocused: Bool
     @State private var selectedItem: PhotosPickerItem?
-    @State private var attachment: Attachment?
+    @State private var attachment: ImageProcessor.Processed?
     @State private var isLoadingImage = false
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
     @State private var saveError: String?
-
-    struct Attachment {
-        let imageData: Data
-        let thumbnailData: Data
-        let preview: UIImage
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -88,23 +82,19 @@ struct ComposeEntryRow: View {
             Task {
                 defer { isLoadingImage = false }
                 guard let data = try? await newItem.loadTransferable(type: Data.self),
-                      let uiImage = UIImage(data: data),
-                      let processed = ImageProcessor.processImage(uiImage) else { return }
-                attachment = Attachment(
-                    imageData: processed.imageData,
-                    thumbnailData: processed.thumbnailData,
-                    preview: uiImage
-                )
+                      let processed = await ImageProcessor.process(data: data) else { return }
+                attachment = processed
             }
         }
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { image in
-                guard let processed = ImageProcessor.processImage(image) else { return }
-                attachment = Attachment(
-                    imageData: processed.imageData,
-                    thumbnailData: processed.thumbnailData,
-                    preview: image
-                )
+                isLoadingImage = true
+                Task {
+                    defer { isLoadingImage = false }
+                    if let processed = await ImageProcessor.process(image: image) {
+                        attachment = processed
+                    }
+                }
             }
             .ignoresSafeArea()
         }

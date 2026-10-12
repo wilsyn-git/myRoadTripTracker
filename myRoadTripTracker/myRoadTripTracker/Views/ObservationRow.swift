@@ -39,7 +39,7 @@ struct ObservationEntryRow: View {
                 // row) and makes it a real, VoiceOver-actionable control.
                 .buttonStyle(.borderless)
                 .accessibilityLabel("View photo full screen")
-            } else if entry.imageData != nil {
+            } else if entry.hasPhoto {
                 // Placeholder while the thumbnail decodes off-main, and for entries that
                 // have a full image but no thumbnail.
                 Image(systemName: "photo.on.rectangle.angled")
@@ -50,10 +50,11 @@ struct ObservationEntryRow: View {
         }
         .padding(.vertical, 2)
         .task(id: entry.thumbnailData) {
-            thumbnail = await Self.decodedThumbnail(from: entry.thumbnailData)
+            // Decoded off main so scrolling the notes feed doesn't hitch.
+            thumbnail = await ImageProcessor.decodedForDisplay(entry.thumbnailData)
         }
         .contextMenu {
-            if entry.imageData != nil, entry.authorName == currentUserName {
+            if entry.hasPhoto, entry.authorName == currentUserName {
                 Button(role: .destructive) {
                     onDeleteImage?()
                 } label: {
@@ -64,15 +65,5 @@ struct ObservationEntryRow: View {
         .fullScreenCover(isPresented: $showingFullImage) {
             FullImageView(imageData: entry.imageData)
         }
-    }
-
-    /// Decode + bitmap-prepare the thumbnail off the main thread so scrolling the notes feed
-    /// doesn't hitch. `preparingForDisplay()` forces the actual decode that `UIImage(data:)`
-    /// otherwise defers to first display.
-    private static func decodedThumbnail(from data: Data?) async -> UIImage? {
-        guard let data else { return nil }
-        return await Task.detached(priority: .userInitiated) {
-            UIImage(data: data)?.preparingForDisplay()
-        }.value
     }
 }

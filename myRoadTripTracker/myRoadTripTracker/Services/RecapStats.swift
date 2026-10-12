@@ -70,7 +70,7 @@ struct RecapStats {
             .map(\.name)
 
         observationCount = observations.count
-        observationsWithPhoto = observations.filter { $0.imageData != nil || $0.thumbnailData != nil }.count
+        observationsWithPhoto = observations.count(where: \.hasPhoto)
     }
 
     /// Deterministic fallback blurb used when the AI model is unavailable.
