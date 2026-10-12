@@ -32,10 +32,15 @@ struct ContentView: View {
     @State private var leaveError: String?
     @State private var leftTripName: String?
     @State private var whatsNewCard: Announcement?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
-    ]
+    /// Two or more cards across; one full-width card per row at accessibility text sizes,
+    /// where cards grow with their text (#32).
+    private var columns: [GridItem] {
+        dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)]
+    }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {

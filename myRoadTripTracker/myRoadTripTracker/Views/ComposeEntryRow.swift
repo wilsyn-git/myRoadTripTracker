@@ -34,10 +34,11 @@ struct ComposeEntryRow: View {
                         .frame(maxHeight: 150)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     Spacer()
-                    Button("Remove", systemImage: "xmark.circle.fill") {
-                        clearAttachment()
+                    Button(action: clearAttachment) {
+                        Label("Remove Photo", systemImage: "xmark.circle.fill")
+                            .labelStyle(.iconOnly)
+                            .minimumTapTarget()
                     }
-                    .labelStyle(.iconOnly)
                     .foregroundStyle(.secondary)
                 }
             } else if isLoadingImage {
@@ -66,15 +67,19 @@ struct ComposeEntryRow: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "paperclip")
+                    // A text label, so VoiceOver says "Attach Photo" rather than a symbol name.
+                    Label("Attach Photo", systemImage: "paperclip")
+                        .labelStyle(.iconOnly)
                         .font(.title3)
+                        .minimumTapTarget()
                 }
 
-                Button("Submit", systemImage: "arrow.up.circle.fill") {
-                    submitEntry()
+                Button(action: submitEntry) {
+                    Label("Submit", systemImage: "arrow.up.circle.fill")
+                        .labelStyle(.iconOnly)
+                        .font(.title3)
+                        .minimumTapTarget()
                 }
-                .labelStyle(.iconOnly)
-                .font(.title3)
                 .disabled(isLoadingImage || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachment == nil))
             }
         }
@@ -138,5 +143,14 @@ struct ComposeEntryRow: View {
 
         text = ""
         clearAttachment()
+    }
+}
+
+private extension View {
+    /// Grows a small icon control to Apple's 44 × 44 pt minimum tap target (#43). With
+    /// `.borderless` buttons the hit area is the label, so this goes on the label.
+    func minimumTapTarget() -> some View {
+        frame(minWidth: 44, minHeight: 44)
+            .contentShape(.rect)
     }
 }

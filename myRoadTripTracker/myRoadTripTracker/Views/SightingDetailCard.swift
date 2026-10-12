@@ -23,7 +23,7 @@ struct SightingDetailCard: View {
                 }
                 if isInterpolated {
                     Text("Approximate location")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.orange)
                 }
             }
