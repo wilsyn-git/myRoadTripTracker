@@ -13,11 +13,10 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(PersistenceController.self) private var persistenceController
 
+    /// Every trip. `TripListSections` groups and orders them by activity (#65); this sort
+    /// only keeps the fetch stable.
     @FetchRequest(
-        sortDescriptors: [
-            NSSortDescriptor(keyPath: \Trip.isClosed, ascending: true),
-            NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)
-        ],
+        sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)],
         animation: .default
     )
     private var trips: FetchedResults<Trip>
@@ -32,15 +31,11 @@ struct ContentView: View {
     @State private var leaveError: String?
     @State private var leftTripName: String?
     @State private var whatsNewCard: Announcement?
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var searchText = ""
 
-    /// Two or more cards across; one full-width card per row at accessibility text sizes,
-    /// where cards grow with their text (#32).
-    private var columns: [GridItem] {
-        dynamicTypeSize.isAccessibilitySize
-            ? [GridItem(.flexible())]
-            : [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)]
-    }
+    /// Search appears once there's enough history to need it. Counted over all trips, not
+    /// the search results, so the field can't vanish while you type (#65).
+    private var showsSearch: Bool { trips.lazy.filter(\.isClosed).count > 5 }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -105,33 +100,48 @@ struct ContentView: View {
     }
 
     private var tripList: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(trips) { trip in
-                    NavigationLink(value: trip.objectID) {
-                        TripCardView(trip: trip)
+        let sections = TripListSections(trips: trips, matching: searchText)
+        return List {
+            if let hero = sections.hero {
+                Section {
+                    // A plain button rather than a NavigationLink: in a List, a link adds a
+                    // disclosure chevron, which doesn't belong on a card.
+                    Button {
+                        navigationPath.append(hero.objectID)
+                    } label: {
+                        TripHeroCard(trip: hero, isShared: isShared(hero))
                     }
                     .buttonStyle(.plain)
-                    .contextMenu {
-                        if persistenceController.isOwner(of: trip) {
-                            Button(role: .destructive) {
-                                tripToDelete = trip
-                                showingDeleteAlert = true
-                            } label: {
-                                Label("Delete Trip", systemImage: "trash")
-                            }
-                        } else {
-                            Button(role: .destructive) {
-                                tripToLeave = trip
-                                showingLeaveAlert = true
-                            } label: {
-                                Label("Leave Trip", systemImage: "rectangle.portrait.and.arrow.right")
-                            }
-                        }
-                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .contextMenu { tripMenu(hero) }
+                } header: {
+                    Text("Current").bold()
+                }
+            } else if searchText.isEmpty, !trips.isEmpty {
+                Section {
+                    noTripInProgressRow
+                } header: {
+                    Text("Current").bold()
                 }
             }
-            .padding()
+            if !sections.otherOpen.isEmpty {
+                Section {
+                    ForEach(sections.otherOpen) { trip in tripRow(trip) }
+                }
+            }
+            ForEach(Array(sections.pastYears.enumerated()), id: \.element.id) { index, pastYear in
+                Section {
+                    ForEach(pastYear.trips) { trip in tripRow(trip) }
+                } header: {
+                    pastHeader(year: pastYear.year, isFirst: index == 0)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .tripSearch(text: $searchText, enabled: showsSearch)
+        .onChange(of: showsSearch) { _, enabled in
+            if !enabled { searchText = "" }
         }
         .navigationTitle("Road Trips")
         .navigationDestination(for: NSManagedObjectID.self) { objectID in
@@ -164,6 +174,8 @@ struct ContentView: View {
                 } actions: {
                     Button("Create Trip", action: addTrip)
                 }
+            } else if !searchText.isEmpty, sections.isEmpty {
+                ContentUnavailableView.search
             }
         }
         .overlay(alignment: .bottom) {
@@ -204,6 +216,65 @@ struct ContentView: View {
         }
     }
 
+    private func tripRow(_ trip: Trip) -> some View {
+        NavigationLink(value: trip.objectID) {
+            TripRow(trip: trip, isShared: isShared(trip))
+        }
+        .contextMenu { tripMenu(trip) }
+    }
+
+    @ViewBuilder
+    private func tripMenu(_ trip: Trip) -> some View {
+        if persistenceController.isOwner(of: trip) {
+            Button(role: .destructive) { confirmDelete(trip) } label: {
+                Label("Delete Trip", systemImage: "trash")
+            }
+        } else {
+            Button(role: .destructive) { confirmLeave(trip) } label: {
+                Label("Leave Trip", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+        }
+    }
+
+    private func confirmDelete(_ trip: Trip) {
+        tripToDelete = trip
+        showingDeleteAlert = true
+    }
+
+    private func confirmLeave(_ trip: Trip) {
+        tripToLeave = trip
+        showingLeaveAlert = true
+    }
+
+    /// Shared when someone else is on it, or when it's someone else's trip you joined.
+    private func isShared(_ trip: Trip) -> Bool {
+        trip.participantCount > 1 || !persistenceController.isOwner(of: trip)
+    }
+
+    private var noTripInProgressRow: some View {
+        HStack {
+            Text("No trip in progress")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Start a Trip", action: addTrip)
+                .bold()
+        }
+    }
+
+    /// The first past year carries the "Past Trips" title above its year.
+    @ViewBuilder
+    private func pastHeader(year: Int, isFirst: Bool) -> some View {
+        let yearText = Text(year, format: .number.grouping(.never))
+        if isFirst {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Past Trips").bold()
+                yearText
+            }
+        } else {
+            yearText
+        }
+    }
+
     private func addTrip() {
         let newTrip = Trip(context: viewContext, name: "New Trip")
         if let store = persistenceController.privatePersistentStore {
@@ -239,4 +310,16 @@ struct ContentView: View {
         whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
     }
 
+}
+
+private extension View {
+    /// Search only once there's enough history to need it (#65).
+    @ViewBuilder
+    func tripSearch(text: Binding<String>, enabled: Bool) -> some View {
+        if enabled {
+            searchable(text: text, prompt: "Search trips")
+        } else {
+            self
+        }
+    }
 }

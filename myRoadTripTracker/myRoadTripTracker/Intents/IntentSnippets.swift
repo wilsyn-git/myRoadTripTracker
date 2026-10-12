@@ -32,7 +32,7 @@ private struct SnippetShell<Content: View>: View {
     }
 }
 
-/// A flag the way `TripCardView` draws its recent-sightings row.
+/// A flag the way `TripHeroCard` draws its recent-sightings row.
 private struct Flag: View {
     let assetName: String
     var width: CGFloat = 28
