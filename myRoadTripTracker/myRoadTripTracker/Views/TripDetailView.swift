@@ -17,6 +17,12 @@ struct TripDetailView: View {
     /// Asks the trip list to delete this trip after popping back to it; deleting it while
     /// this screen still shows it would crash on the deleted trip's name (#65).
     let onDelete: (NSManagedObjectID) -> Void
+    /// Tells the trip list this trip was deleted elsewhere while open (its owner, another of
+    /// your devices, or its share ending), passing the name it had (#66).
+    let onRemoved: (String) -> Void
+    /// The trip's last known name. A deleted trip's name reads empty, so it's kept for the
+    /// "… was deleted" message.
+    @State private var tripName = ""
     @State private var showingDeleteAlert = false
     @State private var showingNamePrompt = false
     @State private var resolvedDisplayName: String?
@@ -30,6 +36,18 @@ struct TripDetailView: View {
     var body: some View {
         tripContent
             .task { await resolveParticipant() }
+            .onChange(of: trip.name, initial: true) { _, name in
+                if !name.isEmpty { tripName = name }
+            }
+            // Without this, a trip deleted while open left a dead screen: blank title, 0
+            // plates, actions that silently did nothing, and notes that were dropped (#66).
+            .onReceive(NotificationCenter.default.publisher(
+                for: .NSManagedObjectContextObjectsDidChange, object: viewContext
+            )) { _ in
+                if trip.isDeleted || trip.managedObjectContext == nil {
+                    onRemoved(tripName)
+                }
+            }
     }
 
     /// Works out who you are on this trip without holding up the screen (#36). It finds your

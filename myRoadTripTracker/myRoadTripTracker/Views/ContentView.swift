@@ -35,7 +35,11 @@ struct ContentView: View {
     @State private var tripToLeave: Trip?
     @State private var showingLeaveAlert = false
     @State private var leaveError: String?
-    @State private var leftTripName: String?
+    /// The brief pill at the bottom: "You left …" or "… was deleted".
+    @State private var toastMessage: String?
+    /// How far the message sits above the bottom edge: clear of the search field, which grows
+    /// with text size.
+    @ScaledMetric(relativeTo: .body) private var toastLift: CGFloat = 64
     @State private var whatsNewCard: Announcement?
     @State private var searchText = ""
 
@@ -103,6 +107,24 @@ struct ContentView: View {
                     }
                 }
         }
+        // On the stack, not the list: anything attached to the list draws under the floating
+        // search field, which hid this message (#66). Lifted to clear that field.
+        .overlay(alignment: .bottom) {
+            if let toastMessage {
+                Text(toastMessage)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, toastLift)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .task(id: toastMessage) {
+                        try? await Task.sleep(for: .seconds(2.5))
+                        withAnimation { self.toastMessage = nil }
+                    }
+            }
+        }
+        .animation(.spring, value: toastMessage)
     }
 
     private var tripList: some View {
@@ -161,7 +183,9 @@ struct ContentView: View {
         }
         .navigationTitle("Road Trips")
         .navigationDestination(for: NSManagedObjectID.self) { objectID in
-            if let trip = viewContext.object(with: objectID) as? Trip {
+            // `existingObject(with:)`, not `object(with:)`: the latter hands back a fault for
+            // a trip that's already gone, which opened as an empty screen (#19, #66).
+            if let trip = try? viewContext.existingObject(with: objectID) as? Trip, !trip.isDeleted {
                 TripDetailView(
                     trip: trip,
                     isNewTrip: objectID == newlyCreatedTrip?.objectID,
@@ -169,7 +193,14 @@ struct ContentView: View {
                         navigationPath = NavigationPath()
                         confirmLeft(name)
                     },
-                    onDelete: deleteAfterPop
+                    onDelete: deleteAfterPop,
+                    onRemoved: confirmRemoved
+                )
+            } else {
+                ContentUnavailableView(
+                    "Trip No Longer Available",
+                    systemImage: "car.fill",
+                    description: Text("It was deleted, or it's no longer shared with you.")
                 )
             }
         }
@@ -194,22 +225,6 @@ struct ContentView: View {
                 ContentUnavailableView.search(text: searchText)
             }
         }
-        .overlay(alignment: .bottom) {
-            if let leftTripName {
-                Text("You left \(leftTripName)")
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .task(id: leftTripName) {
-                        try? await Task.sleep(for: .seconds(2.5))
-                        withAnimation { self.leftTripName = nil }
-                    }
-            }
-        }
-        .animation(.spring, value: leftTripName)
         .onAppear {
             isPulsing = trips.isEmpty
             presentWhatsNewIfDue()
@@ -356,7 +371,17 @@ struct ContentView: View {
     }
 
     private func confirmLeft(_ name: String) {
-        withAnimation { leftTripName = name }
+        withAnimation { toastMessage = "You left \(name)" }
+    }
+
+    /// The open trip was deleted somewhere else: by its owner, on another of your devices, or
+    /// by its share ending. Its screen asked to close; go back to the list and say why (#66).
+    /// Ignored once the list is already showing, e.g. after this phone left or deleted the
+    /// trip itself and the delete merged in during the pop.
+    private func confirmRemoved(_ name: String) {
+        guard !navigationPath.isEmpty else { return }
+        navigationPath = NavigationPath()
+        withAnimation { toastMessage = name.isEmpty ? "That trip was deleted" : "\(name) was deleted" }
     }
 
     /// Deletes a trip its own screen asked to delete, once that screen is gone (#65).
