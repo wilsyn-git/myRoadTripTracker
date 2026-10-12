@@ -15,9 +15,20 @@ struct PlateSightingsGrid: View {
     @Environment(\.managedObjectContext) private var viewContext
     @State private var revealingCodes: Set<String> = []
     @State private var sightingToInspect: PlateSighting?
+    /// `currentUserName`, mirrored into state for the tile tap closures. Unchanged tiles
+    /// skip redraws (`.equatable()`) and keep closures from an earlier render, so reading
+    /// a stored property there would credit a stale name (e.g. from before the join
+    /// prompt). State reads stay current.
+    @State private var spotterName = ""
 
-    private var sightings: [PlateSighting] {
-        trip.plateSightingsArray
+    /// Each seen region's sighting, keyed by code: one unsorted pass over the trip's set
+    /// rather than the sorted `plateSightingsArray` (#38). With duplicates (two phones
+    /// marking the same plate), the earliest sighting wins, as before.
+    private var sightingsByCode: [String: PlateSighting] {
+        let set = (trip.plateSightings as? Set<PlateSighting>) ?? []
+        return Dictionary(set.map { ($0.locationCode, $0) }) { first, second in
+            (first.seenDate ?? .distantPast) <= (second.seenDate ?? .distantPast) ? first : second
+        }
     }
 
     private func filtered(_ locations: [Location], seenCodes: Set<String>) -> [Location] {
@@ -30,17 +41,17 @@ struct PlateSightingsGrid: View {
     }
 
     private func isSeen(_ location: Location) -> Bool {
-        sightings.contains { $0.locationCode == location.code }
+        sighting(for: location) != nil
     }
 
     private func sighting(for location: Location) -> PlateSighting? {
-        sightings.first { $0.locationCode == location.code }
+        sightingsByCode[location.code]
     }
 
     var body: some View {
         // Build the seen-code lookup once per render so each tile does an O(1) membership
         // check instead of scanning every sighting.
-        let seenCodes = Set(sightings.map(\.locationCode))
+        let seenCodes = Set(sightingsByCode.keys)
 
         ScrollView {
             VStack(spacing: 16) {
@@ -55,6 +66,9 @@ struct PlateSightingsGrid: View {
         }
         .sheet(item: $sightingToInspect) { sighting in
             PlateSightingDetailSheet(sighting: sighting, trip: trip)
+        }
+        .onChange(of: currentUserName, initial: true) { _, name in
+            spotterName = name
         }
     }
 
@@ -86,6 +100,7 @@ struct PlateSightingsGrid: View {
                         onTapUnseen: { markAsSeen(location) },
                         onTapSeen: { sightingToInspect = sighting(for: location) }
                     )
+                    .equatable()
                     .contextMenu {
                         if seenCodes.contains(location.code), !trip.isClosed {
                             Button("Remove sighting", role: .destructive) {
@@ -150,7 +165,7 @@ struct PlateSightingsGrid: View {
             locationName: location.name,
             latitude: recent?.coordinate.latitude ?? 0.0,
             longitude: recent?.coordinate.longitude ?? 0.0,
-            spottedByName: currentUserName
+            spottedByName: spotterName
         )
         sighting.trip = trip
         viewContext.save(contextInfo: "markAsSeen")
@@ -182,7 +197,7 @@ struct PlateSightingsGrid: View {
     }
 
     private func unmarkAsSeen(_ location: Location) {
-        guard let sighting = sightings.first(where: { $0.locationCode == location.code }) else { return }
+        guard let sighting = sighting(for: location) else { return }
         viewContext.delete(sighting)
         viewContext.save(contextInfo: "unmarkAsSeen")
     }
