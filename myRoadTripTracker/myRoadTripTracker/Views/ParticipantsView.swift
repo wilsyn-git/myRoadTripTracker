@@ -10,6 +10,9 @@ struct ParticipantsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(PersistenceController.self) private var persistenceController
     @State private var leaveError: String?
+    @State private var removeError: String?
+    /// Participants whose access is being revoked; their rows show a spinner meanwhile.
+    @State private var removingIDs: Set<NSManagedObjectID> = []
 
     var body: some View {
         NavigationStack {
@@ -34,9 +37,13 @@ struct ParticipantsView: View {
                             }
                         }
                         Spacer()
+                        if removingIDs.contains(participant.objectID) {
+                            ProgressView()
+                        }
                     }
                     .swipeActions(edge: .trailing) {
-                        if isOwner && participant.cloudKitUserID != currentUserID {
+                        if isOwner && participant.cloudKitUserID != currentUserID
+                            && !removingIDs.contains(participant.objectID) {
                             Button("Remove", role: .destructive) {
                                 removeParticipant(participant)
                             }
@@ -78,12 +85,41 @@ struct ParticipantsView: View {
                     Text(leaveError)
                 }
             }
+            .alert(
+                "Couldn't Remove",
+                isPresented: Binding(
+                    get: { removeError != nil },
+                    set: { if !$0 { removeError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { removeError = nil }
+            } message: {
+                if let removeError {
+                    Text(removeError)
+                }
+            }
         }
     }
 
+    /// Takes the person off the trip's CloudKit share first, so they lose access (#30), then
+    /// deletes their row. If the revoke fails, the row stays, so the list never shows someone
+    /// as gone while they can still open the trip.
     private func removeParticipant(_ participant: TripParticipant) {
-        viewContext.delete(participant)
-        viewContext.save(contextInfo: "removeParticipant")
+        let objectID = participant.objectID
+        let userID = participant.cloudKitUserID
+        removingIDs.insert(objectID)
+        Task {
+            defer { removingIDs.remove(objectID) }
+            do {
+                try await persistenceController.revokeAccess(to: trip, forUserID: userID)
+            } catch {
+                removeError = "Couldn't remove \(participant.displayName): \(error.localizedDescription)"
+                return
+            }
+            guard !participant.isDeleted, participant.managedObjectContext != nil else { return }
+            viewContext.delete(participant)
+            viewContext.save(contextInfo: "removeParticipant")
+        }
     }
 
     private func leaveTrip() {
