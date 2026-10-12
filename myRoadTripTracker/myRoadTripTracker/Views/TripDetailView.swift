@@ -11,7 +11,6 @@ struct TripDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(PersistenceController.self) private var persistenceController
-    @FocusState private var isNameFieldFocused: Bool
     @State private var locationManager = LocationManager()
     @State private var selectedTab: TripTab = .plates
     @State private var showingSharingSheet = false
@@ -60,37 +59,9 @@ struct TripDetailView: View {
 
     private var tripContent: some View {
         VStack(spacing: 0) {
-            TextField("Trip Name", text: $trip.name)
-                .font(.title2)
-                .fontWeight(.bold)
-                .focused($isNameFieldFocused)
-                .disabled(trip.isClosed)
+            TripNameField(trip: trip, focusOnAppear: isNewTrip)
                 .padding(.horizontal)
                 .padding(.top, 8)
-                .onChange(of: isNameFieldFocused) { _, focused in
-                    // Commit once when the user finishes editing, rather than on every
-                    // keystroke — avoids syncing partial names to collaborators.
-                    if !focused { viewContext.save(contextInfo: "tripNameChange") }
-                }
-                .onDisappear {
-                    // Safety net: if the view tears down while the field is still focused
-                    // (e.g. navigating back without dismissing the keyboard).
-                    viewContext.save(contextInfo: "tripNameChange")
-                }
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
-                            isNameFieldFocused = false
-                        }
-                    }
-                }
-                .task {
-                    if isNewTrip {
-                        try? await Task.sleep(for: .milliseconds(100))
-                        isNameFieldFocused = true
-                    }
-                }
 
             Picker("Tab", selection: $selectedTab) {
                 ForEach(TripTab.allCases, id: \.self) { tab in

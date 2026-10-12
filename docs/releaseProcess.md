@@ -87,6 +87,13 @@ CloudKit schema changes must be deployed to **production** in the CloudKit Dashb
 TestFlight build can sync. Development and production are separate environments, and
 `initializeCloudKitSchema()` runs only in `DEBUG`, so it never touches production.
 
+`initializeCloudKitSchema()` runs only when it's asked for. After changing the model, run one debug build with
+the launch argument `-initCloudKitSchema` (Xcode → Product → Scheme → Edit Scheme → Run → Arguments, or
+`xcrun simctl launch <device> com.tentenbits.myRoadTripTracker -initCloudKitSchema`). That pushes the
+model to the development schema. The log shows "CloudKit schema initialized successfully." Deploy to
+production from there. Ordinary debug launches skip it, because it's a slow, synchronous CloudKit
+round-trip before the first frame.
+
 Changing only Swift code — including writing to attributes that already exist in the model — needs no
 schema deploy. Confirm with `git status` on `Resources/myRoadTripTracker.xcdatamodeld` when unsure.
 

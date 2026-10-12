@@ -34,7 +34,15 @@ struct PlateTileView: View {
             }
         }
         .onChange(of: isSeen) { _, seen in
-            if !seen {
+            if seen {
+                // Marked elsewhere (Siri, a collaborator) while this tile was on screen. No
+                // local reveal plays, so show the seen state directly (#41).
+                guard !isRevealing else { return }
+                grayscaleAmount = 0
+                withAnimation(.easeIn(duration: 0.15)) {
+                    showCheckmark = true
+                }
+            } else {
                 showCheckmark = false
                 grayscaleAmount = 1.0
                 tileScale = 1.0
