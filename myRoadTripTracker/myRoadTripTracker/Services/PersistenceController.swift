@@ -128,11 +128,16 @@ final class PersistenceController {
         _sharedPersistentStore = sharedStore
 
         #if DEBUG
-        do {
-            try persistentContainer.initializeCloudKitSchema()
-            logger.info("CloudKit schema initialized successfully.")
-        } catch {
-            logger.error("Failed to initialize CloudKit schema: \(error.localizedDescription)")
+        // Pushes the model to the CloudKit development schema. It's a synchronous CloudKit
+        // round-trip on the main thread before the first frame, so it runs only when asked:
+        // launch with `-initCloudKitSchema` after changing the model (docs/releaseProcess.md).
+        if ProcessInfo.processInfo.arguments.contains("-initCloudKitSchema") {
+            do {
+                try persistentContainer.initializeCloudKitSchema()
+                logger.info("CloudKit schema initialized successfully.")
+            } catch {
+                logger.error("Failed to initialize CloudKit schema: \(error.localizedDescription)")
+            }
         }
         #endif
 
