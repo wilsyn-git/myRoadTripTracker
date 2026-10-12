@@ -25,35 +25,37 @@ struct TripDetailView: View {
     @State private var showingRecap = false
     @State private var isGeneratingRecap = false
     @State private var isOwner = true
-    @State private var isLoading = true
     @State private var plateFilter: PlateFilter = .all
 
     var body: some View {
-        if isLoading {
-            ProgressView("Loading trip\u{2026}")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .task {
-                    cloudKitUserID = await CloudKitUserHelper.currentUserID()
-                    isOwner = persistenceController.isOwner(of: trip)
-                    let participants = trip.participantsArray
-                    if participants.isEmpty {
-                        let participant = TripParticipant(
-                            context: viewContext,
-                            displayName: currentUserName,
-                            cloudKitUserID: cloudKitUserID
-                        )
-                        participant.trip = trip
-                        viewContext.save(contextInfo: "addInitialParticipant")
-                        resolvedDisplayName = currentUserName
-                    } else if let existing = participants.first(where: { $0.cloudKitUserID == cloudKitUserID }) {
-                        resolvedDisplayName = existing.displayName
-                    } else {
-                        showingNamePrompt = true
-                    }
-                    isLoading = false
-                }
+        tripContent
+            .task { await resolveParticipant() }
+    }
+
+    /// Works out who you are on this trip without holding up the screen (#36). It finds your
+    /// participant row, creates one for a new trip or a trip you own, or asks for a display
+    /// name when you're joining someone else's. It's skipped while your ID can't be known
+    /// (offline before it was ever fetched); the next open tries again.
+    private func resolveParticipant() async {
+        isOwner = persistenceController.isOwner(of: trip)
+        guard let userID = await CloudKitUserHelper.currentUserID(),
+              !trip.isDeleted, trip.managedObjectContext != nil else { return }
+        cloudKitUserID = userID
+        let participants = trip.participantsArray
+        if let existing = participants.first(where: { $0.cloudKitUserID == userID }) {
+            resolvedDisplayName = existing.displayName
+        } else if participants.isEmpty || isOwner {
+            // Your own trip never asks you to join it.
+            let participant = TripParticipant(
+                context: viewContext,
+                displayName: currentUserName,
+                cloudKitUserID: userID
+            )
+            participant.trip = trip
+            viewContext.save(contextInfo: "addInitialParticipant")
+            resolvedDisplayName = currentUserName
         } else {
-            tripContent
+            showingNamePrompt = true
         }
     }
 
