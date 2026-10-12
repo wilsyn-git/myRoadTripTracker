@@ -3,6 +3,7 @@ import CoreData
 
 struct TripCardView: View {
     @ObservedObject var trip: Trip
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private static let usCodes = Set(Location.usStates.map(\.code))
     private static let caCodes = Set(Location.canadaLocations.map(\.code))
@@ -81,7 +82,7 @@ struct TripCardView: View {
                 Text(trip.name)
                     .font(.title3)
                     .bold()
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
                     .minimumScaleFactor(0.8)
 
                 HStack(spacing: 6) {
@@ -101,9 +102,9 @@ struct TripCardView: View {
                     if data.totalObservationCount > 0 {
                         HStack(spacing: 2) {
                             Image(systemName: "text.bubble.fill")
-                                .font(.caption2)
+                                .font(.caption)
                             Text("\(data.totalObservationCount)")
-                                .font(.caption2)
+                                .font(.caption)
                                 .fontWeight(.medium)
                         }
                         .overlay(alignment: .topTrailing) {
@@ -118,17 +119,17 @@ struct TripCardView: View {
 
                     if unseenRecap {
                         Image(systemName: "sparkles")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.yellow)
                             .accessibilityLabel("New recap available")
                     }
 
                     if data.participantCount > 1 {
                         Image(systemName: "person.2.fill")
-                            .font(.caption2)
+                            .font(.caption)
                             .accessibilityHidden(true)
                         Text("\(data.participantCount)")
-                            .font(.caption2)
+                            .font(.caption)
                     }
                 }
                 .opacity(0.85)
@@ -169,9 +170,22 @@ struct TripCardView: View {
         .foregroundStyle(.white)
         .padding()
         .frame(maxWidth: .infinity)
-        .aspectRatio(0.85, contentMode: .fit)
+        .tripCardAspect(fixed: !dynamicTypeSize.isAccessibilitySize)
         .background(cardColor.gradient, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(trip.name), \(data.usSeenCount) of \(Self.usTotalCount) US plates, \(data.caSeenCount) of \(Self.caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")\(unseenRecap ? ", new recap available" : "")")
+    }
+}
+
+private extension View {
+    /// Trip cards keep their fixed shape, except at accessibility text sizes. There they
+    /// grow with their content instead of clipping it (#32).
+    @ViewBuilder
+    func tripCardAspect(fixed: Bool) -> some View {
+        if fixed {
+            aspectRatio(0.85, contentMode: .fit)
+        } else {
+            self
+        }
     }
 }

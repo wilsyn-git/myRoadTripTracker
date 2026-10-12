@@ -6,78 +6,86 @@ struct PlateSightingDetailSheet: View {
     @ObservedObject var trip: Trip
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showingRemoveAlert = false
     @State private var showingMap = false
 
+    /// A snug sheet at default text sizes. Larger text needs more height, so the sheet
+    /// opens at medium (draggable to large) and its content scrolls (#43).
+    private var detents: Set<PresentationDetent> {
+        dynamicTypeSize > .large ? [.medium, .large] : [.height(340)]
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                Image(sighting.flagImageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 80, height: 52)
-                    .clipShape(.rect(cornerRadius: 4))
-
-                Text("\(sighting.locationCode) — \(sighting.locationName)")
-                    .font(.title3.bold())
-
-                VStack(spacing: 4) {
-                    if let date = sighting.seenDate {
-                        Text("Spotted \(Text(date, style: .relative)) ago")
-                            .font(.subheadline)
-                    } else {
-                        Text("Spotted recently")
-                            .font(.subheadline)
-                    }
-
-                    if let name = sighting.spottedByName, !name.isEmpty {
-                        Text("by \(name)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if sighting.hasValidCoordinate {
-                        Text(String(format: "%.4f, %.4f", sighting.latitude, sighting.longitude))
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("No location recorded")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    if sighting.hasValidCoordinate {
-                        Button {
-                            showingMap = true
-                        } label: {
-                            Text("View on map")
-                                .frame(maxWidth: .infinity)
+            ScrollView {
+                VStack(spacing: 12) {
+                    Image(sighting.flagImageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 80, height: 52)
+                        .clipShape(.rect(cornerRadius: 4))
+    
+                    Text("\(sighting.locationCode) — \(sighting.locationName)")
+                        .font(.title3.bold())
+    
+                    VStack(spacing: 4) {
+                        if let date = sighting.seenDate {
+                            Text("Spotted \(Text(date, style: .relative)) ago")
+                                .font(.subheadline)
+                        } else {
+                            Text("Spotted recently")
+                                .font(.subheadline)
                         }
-                        .buttonStyle(.borderedProminent)
-                    }
-
-                    if !trip.isClosed {
-                        Button(role: .destructive) {
-                            showingRemoveAlert = true
-                        } label: {
-                            Text("Remove")
-                                .frame(maxWidth: .infinity)
+    
+                        if let name = sighting.spottedByName, !name.isEmpty {
+                            Text("by \(name)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
+    
+                        if sighting.hasValidCoordinate {
+                            Text(String(format: "%.4f, %.4f", sighting.latitude, sighting.longitude))
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("No location recorded")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+    
+                    HStack {
+                        if sighting.hasValidCoordinate {
+                            Button {
+                                showingMap = true
+                            } label: {
+                                Text("View on map")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+    
+                        if !trip.isClosed {
+                            Button(role: .destructive) {
+                                showingRemoveAlert = true
+                            } label: {
+                                Text("Remove")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
-
-                Spacer()
+                .padding()
             }
-            .padding()
+            .scrollBounceBehavior(.basedOnSize)
             .navigationDestination(isPresented: $showingMap) {
                 PlateSightingsMapView(sightings: [sighting], embedded: true)
             }
-            .presentationDetents([.height(340)])
+            .presentationDetents(detents)
             .presentationDragIndicator(.visible)
             .alert("Remove Sighting", isPresented: $showingRemoveAlert) {
                 Button("Remove", role: .destructive) {

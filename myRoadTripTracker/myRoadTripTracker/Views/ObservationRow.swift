@@ -21,7 +21,7 @@ struct ObservationEntryRow: View {
                     Text(createdDate, format: Calendar.current.isDateInToday(createdDate)
                          ? .dateTime.hour().minute()
                          : .dateTime.month(.abbreviated).day().hour().minute())
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
