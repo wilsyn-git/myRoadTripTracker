@@ -1,21 +1,17 @@
 import SwiftUI
 
+/// Two concentric progress rings: US plates outside, Canadian plates inside. Callers draw the
+/// counts next to the ring, so the ring itself carries no text (#57).
 struct DualProgressRingView: View {
     let usProgress: Double
     let usSeenCount: Int
-    let usTotalCount: Int
     let caProgress: Double
     let caSeenCount: Int
-    let caTotalCount: Int
+    /// Width at the default text size. The ring scales with Dynamic Type from here, so it
+    /// keeps pace with the counts beside it (#43).
+    var diameter: CGFloat = 44
 
-    // Sized for the default text size and scaled with Dynamic Type, so larger text grows
-    // the ring instead of leaving tiny fixed-size labels (#43). The trip card makes room
-    // at accessibility sizes (#32).
-    @ScaledMetric(relativeTo: .caption2) private var ringSize: CGFloat = 68
-    @ScaledMetric(relativeTo: .caption2) private var ringGap: CGFloat = 8
-    @ScaledMetric(relativeTo: .caption2) private var regionLabelSize: CGFloat = 7
-    @ScaledMetric(relativeTo: .caption2) private var usCountSize: CGFloat = 10
-    @ScaledMetric(relativeTo: .caption2) private var caCountSize: CGFloat = 9
+    @ScaledMetric(relativeTo: .subheadline) private var scale: CGFloat = 1
 
     private var usRingColor: Color {
         if usSeenCount <= 15 { return .red }
@@ -30,41 +26,34 @@ struct DualProgressRingView: View {
     }
 
     var body: some View {
+        let size = diameter * scale
+        let outerWidth = size * 0.12
+        let innerWidth = size * 0.1
+        // Both strokes are inset to stay inside the frame, so a scaled-up ring never
+        // spills onto the row above it.
+        let outerInset = outerWidth / 2
+        let innerInset = outerWidth + size * 0.04 + innerWidth / 2
+
         ZStack {
             Circle()
-                .stroke(.white.opacity(0.25), lineWidth: 5)
+                .inset(by: outerInset)
+                .stroke(.white.opacity(0.25), lineWidth: outerWidth)
             Circle()
+                .inset(by: outerInset)
                 .trim(from: 0, to: usProgress)
-                .stroke(usRingColor, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .stroke(usRingColor, style: StrokeStyle(lineWidth: outerWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
 
             Circle()
-                .stroke(.white.opacity(0.25), lineWidth: 4)
-                .padding(ringGap)
+                .inset(by: innerInset)
+                .stroke(.white.opacity(0.25), lineWidth: innerWidth)
             Circle()
+                .inset(by: innerInset)
                 .trim(from: 0, to: caProgress)
-                .stroke(caRingColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(caRingColor, style: StrokeStyle(lineWidth: innerWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .padding(ringGap)
-
-            VStack(spacing: 2) {
-                HStack(spacing: 2) {
-                    Text("US")
-                        .font(.system(size: regionLabelSize, weight: .medium, design: .rounded))
-                        .opacity(0.7)
-                    Text("\(usSeenCount)/\(usTotalCount)")
-                        .font(.system(size: usCountSize, weight: .bold, design: .rounded))
-                }
-                HStack(spacing: 2) {
-                    Text("CA")
-                        .font(.system(size: regionLabelSize, weight: .medium, design: .rounded))
-                        .opacity(0.7)
-                    Text("\(caSeenCount)/\(caTotalCount)")
-                        .font(.system(size: caCountSize, weight: .semibold, design: .rounded))
-                        .opacity(0.85)
-                }
-            }
         }
-        .frame(width: ringSize, height: ringSize)
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }

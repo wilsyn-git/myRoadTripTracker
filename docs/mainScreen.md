@@ -53,12 +53,12 @@ Each tile is a vertical card with a fixed aspect ratio (`0.85`), rounded corners
 A horizontal row of up to **5 most-recent plate sightings** for the trip, rendered as small (28×18) flag thumbnails with a thin white border and slight overlap. Newest sighting is on the left. The image asset name is derived from `locationName` (lowercased, spaces replaced with underscores), with `flag` as the fallback. This whole row is hidden when there are no sightings yet.
 
 ### 4. Dual progress rings (`DualProgressRingView`)
-A 68×68 composite ring in the bottom-leading area of the card, with two concentric arcs:
+A 44×44 composite ring in the bottom-leading area of the card, with two concentric arcs:
 
-- **Outer ring (US)** — progress = `usSeenCount / 50`. Color thresholds: red ≤ 15 seen, yellow ≤ 30 seen, green > 30.
+- **Outer ring (US)** — progress = `usSeenCount / 51` (50 states + DC). Color thresholds: red ≤ 15 seen, yellow ≤ 30 seen, green > 30.
 - **Inner ring (Canada)** — progress = `caSeenCount / 13` (10 provinces + 3 territories). Color thresholds: red ≤ 4 seen, yellow ≤ 8 seen, green > 8.
 
-The center of the ring shows two lines of text: `US <seen>/<total>` and `CA <seen>/<total>`.
+The ring itself has no text. The counts sit to its right in two lines, `US <seen>/<total>` (subheadline, bold) and `CA <seen>/<total>` (footnote), each after a caption2 region label, so nothing is smaller than 11 pt at the default text size (#57). The ring scales with Dynamic Type alongside the counts. The Siri count snippet draws the same ring at 64 pt.
 
 Counts are computed by intersecting `trip.plateSightings` against the canonical lists in `Location.usStates` and `Location.canadaLocations` (defined in `Services/Location.swift`).
 
