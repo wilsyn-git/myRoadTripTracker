@@ -69,7 +69,7 @@ NSManagedObject subclasses live in `CoreDataModels/<Entity>+CoreDataClass.swift`
 
 - **App lifecycle:** `myRoadTripTrackerApp.swift`, `AppDelegate.swift` (SceneDelegate inside; share acceptance lives here)
 - **Persistence:** `PersistenceController.swift`, `CoreDataHelpers.swift`, `CoreDataModels/*`
-- **Trip list / cards:** `ContentView.swift` (currently being reworked into a `LazyVGrid` of cards — see "In-flight" below), `TripRowView.swift` (contains `TripCardView` + `ProgressRingView` post-rework)
+- **Trip list:** `ContentView.swift` (inset-grouped `List`: a `TripHeroCard` for the most recently active open trip, `TripRow`s for other open trips and for past trips by year; grouping in `Services/TripListSections.swift`; close/reopen/delete in `Services/TripLifecycle.swift`)
 - **Trip detail:** `TripDetailView.swift`
 - **Plates:** `PlateSightingsSection.swift` (grouped checklist + toolbar map button + plate filter dropdown), `PlateSightingsMapView.swift` (flag annotations, interpolation)
 - **Observations:** `ObservationsSection.swift`, `ObservationRow.swift` (append-only with author attribution)
@@ -86,14 +86,11 @@ Project uses `PBXFileSystemSynchronizedRootGroup` (Xcode 16+ auto file discovery
 - Map: pins only, no lines/routes/animation.
 - If location denied: plates can still be marked with coords `0,0`.
 
-## Trip list grid (landed in 17a1f31, 2026-04-25)
+## Trip list (redesigned 2026-10-12, #65)
 
-Trip list redesign in `ContentView.swift` and `TripCardView.swift`:
-
-- Trip list: `List` → `LazyVGrid` of `TripCardView` (renamed from `TripRowView`).
-- Cards have a progress ring (`DualProgressRingView`), recent-flag strip, and color-coded background (closed = grey, active = green).
-- Swipe-to-delete replaced with long-press context menu + confirmation alert.
-- Sort: closed trips pushed to the bottom (sort by `isClosed` asc, then `createdDate` desc).
+- Inset-grouped `List`. **Current**: the open trip with the latest activity as a hero card (same rule as Siri's current trip, `Trip.byRecentActivity`), then other open trips as rows. **Past Trips**: closed trips by year of last activity. Search appears with more than 5 past trips.
+- Actions everywhere: leading swipe Close/Reopen (owner), trailing swipe Delete (owner) / Leave (participant), the same in the long-press menu; Delete Trip is also in the trip screen's overflow menu.
+- Panels with white text use `Theme.panel(closed:)` (darkens downward; ≥ 4.5:1). Progress is `RegionProgressBars`, single hue; the red/yellow/green `DualProgressRingView` is gone.
 
 ## Known limitations / not started
 
