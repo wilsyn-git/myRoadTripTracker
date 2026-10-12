@@ -122,7 +122,8 @@ struct TripDetailView: View {
                     } label: {
                         Label("View Sightings Map", systemImage: "map")
                     }
-                    .disabled(trip.plateSightingsArray.isEmpty)
+                    // A count, not `plateSightingsArray`, which sorts every sighting.
+                    .disabled((trip.plateSightings?.count ?? 0) == 0)
                 }
             }
             ToolbarItem(placement: .secondaryAction) {

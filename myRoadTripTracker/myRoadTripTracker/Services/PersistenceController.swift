@@ -382,6 +382,12 @@ final class PersistenceController {
     /// Check if the current user owns this trip (i.e., it lives in the private store).
     func isOwner(of trip: Trip) -> Bool {
         guard let store = privatePersistentStore else { return true }
+        // A saved object's ID already names its store, so there's no need to fetch. The trip
+        // list asks this for every card on every render (#38). Only an unsaved trip
+        // falls back to the fetch.
+        if !trip.objectID.isTemporaryID, let tripStore = trip.objectID.persistentStore {
+            return tripStore === store
+        }
         return store.contains(managedObject: trip)
     }
 

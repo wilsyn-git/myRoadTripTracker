@@ -1,6 +1,10 @@
 import SwiftUI
 
-struct PlateTileView: View {
+/// Equatable on what the tile draws, so the grid can skip unchanged tiles with
+/// `.equatable()` (#38). Without it, the tap closures (which SwiftUI can't compare) made
+/// every grid render redraw all 64 tiles. The closures are deliberately left out of `==`;
+/// `PlateSightingsGrid` keeps whatever they read current.
+struct PlateTileView: View, Equatable {
     let location: Location
     let isSeen: Bool
     let isRevealing: Bool
@@ -12,6 +16,10 @@ struct PlateTileView: View {
     @State private var grayscaleAmount: Double = 1.0
     @State private var showCheckmark = false
     @State private var showBurst = false
+
+    static func == (lhs: PlateTileView, rhs: PlateTileView) -> Bool {
+        lhs.location == rhs.location && lhs.isSeen == rhs.isSeen && lhs.isRevealing == rhs.isRevealing
+    }
 
     var body: some View {
         Button(action: handleTap) {
