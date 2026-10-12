@@ -5,10 +5,13 @@ enum Theme {
     /// Open trip panels, the recap card, Siri cards and what's-new accents. Dark enough
     /// that white text on it is 5.7:1; the HIG minimum is 4.5:1 (#65).
     static let green = Color(red: 0.11, green: 0.46, blue: 0.24)
+    /// Green used *as text* on plain backgrounds. Lighter in dark mode so it stays at least
+    /// 4.5:1 there; `green` itself is for fills behind white text (#65).
+    static let greenText = Color("GreenText")
     /// A closed trip's Siri card.
     static let closedGray = Color(white: 0.38)
     /// Secondary text on a `panel`. Plain `.secondary` is too faint there: white at 0.6
-    /// on `green` is 3.1:1, at 0.9 it's 5.1:1 (#65).
+    /// on `green` is 3.1:1, at 0.9 it's about 5:1 at the top of the panel (#65).
     static let panelSecondaryText = Color.white.opacity(0.9)
     /// The two ends of the plate progress bars; also the reveal confetti.
     static let amber = Color(red: 0.96, green: 0.62, blue: 0.04)

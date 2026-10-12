@@ -20,7 +20,7 @@ struct WhatsNewSheet: View {
                     Text("NEW")
                         .font(.caption2.weight(.heavy))
                         .tracking(1.2)
-                        .foregroundStyle(Theme.green)
+                        .foregroundStyle(Theme.greenText)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Theme.green.opacity(0.15), in: .capsule)

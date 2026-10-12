@@ -109,7 +109,16 @@ struct ContentView: View {
         _ = listRevision // Read so a bump re-runs this body; see `listRevision`.
         let sections = TripListSections(trips: trips, matching: searchText)
         return List {
-            if let hero = sections.hero {
+            if !searchText.isEmpty {
+                // A search result isn't "current": show every matching open trip as a plain
+                // row rather than promoting the first match to the hero card.
+                let openMatches = (sections.hero.map { [$0] } ?? []) + sections.otherOpen
+                if !openMatches.isEmpty {
+                    Section {
+                        ForEach(openMatches) { trip in tripRow(trip) }
+                    }
+                }
+            } else if let hero = sections.hero {
                 Section {
                     // A plain button rather than a NavigationLink: in a List, a link adds a
                     // disclosure chevron, which doesn't belong on a card.
@@ -125,14 +134,14 @@ struct ContentView: View {
                 } header: {
                     Text("Current").bold()
                 }
-            } else if searchText.isEmpty, !trips.isEmpty {
+            } else if !trips.isEmpty {
                 Section {
                     noTripInProgressRow
                 } header: {
                     Text("Current").bold()
                 }
             }
-            if !sections.otherOpen.isEmpty {
+            if searchText.isEmpty, !sections.otherOpen.isEmpty {
                 Section {
                     ForEach(sections.otherOpen) { trip in tripRow(trip) }
                 }
@@ -182,7 +191,7 @@ struct ContentView: View {
                     Button("Create Trip", action: addTrip)
                 }
             } else if !searchText.isEmpty, sections.isEmpty {
-                ContentUnavailableView.search
+                ContentUnavailableView.search(text: searchText)
             }
         }
         .overlay(alignment: .bottom) {
@@ -241,7 +250,9 @@ struct ContentView: View {
         NavigationLink(value: trip.objectID) {
             TripRow(trip: trip, isShared: isShared(trip))
         }
-        .swipeActions(edge: .leading) {
+        // No full swipe: closing ends marking for everyone, so it takes a deliberate tap,
+        // not a swipe that overshoots in a moving car.
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
             if persistenceController.isOwner(of: trip) {
                 closeButton(trip)
                     .tint(trip.isClosed ? Theme.green : .gray)

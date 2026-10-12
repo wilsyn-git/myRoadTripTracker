@@ -19,7 +19,8 @@ struct TripActivityLine: View {
         let span = trip.activitySpan
         if trip.isClosed {
             if let span { return range(span) }
-            return trip.createdDate?.formatted(.dateTime.month(.abbreviated).day().year()) ?? ""
+            // No year: the row already sits under its year header.
+            return trip.createdDate?.formatted(.dateTime.month(.abbreviated).day()) ?? ""
         }
         let started = trip.createdDate?.formatted(.dateTime.month(.abbreviated).day())
         guard let last = span?.upperBound else {

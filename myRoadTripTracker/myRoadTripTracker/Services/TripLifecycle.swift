@@ -25,6 +25,7 @@ enum TripLifecycle {
     /// unavailable (narrative == nil), so the "recap ready" badge appears for everyone;
     /// `TripRecapView` falls back to the template narrative.
     private static func generateRecap(for trip: Trip, in context: NSManagedObjectContext) async {
+        guard !trip.isDeleted, trip.managedObjectContext != nil else { return }
         let id = trip.objectID
         guard !generatingRecap.contains(id) else { return }
         let stats = RecapStats(trip: trip)
@@ -32,8 +33,9 @@ enum TripLifecycle {
         generatingRecap.insert(id)
         defer { generatingRecap.remove(id) }
         let narrative = await RecapNarrativeGenerator.generate(from: stats, tripName: trip.name)
-        // The trip may have been deleted while the model ran.
-        guard !trip.isDeleted, trip.managedObjectContext != nil else { return }
+        // The trip may have been deleted, or reopened, while the model ran. A reopened trip
+        // must not get a recap stamp, or every participant sees a false "new recap".
+        guard !trip.isDeleted, trip.managedObjectContext != nil, trip.isClosed else { return }
         if let narrative { trip.recapNarrative = narrative }
         trip.recapGeneratedDate = Date()
         context.save(contextInfo: "generateRecap")
