@@ -26,9 +26,12 @@ struct ParticipantsView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            Text("Joined \(participant.joinedDate ?? Date(), style: .date)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            // No fallback to `Date()`: an unknown join date must not render as today.
+                            if let joined = participant.joinedDate {
+                                Text("Joined \(joined, style: .date)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
                     }

@@ -15,8 +15,12 @@ struct ObservationEntryRow: View {
                     .fontWeight(.semibold)
                 Spacer()
                 // No fallback to `Date()` — an unknown time must not render as now.
+                // Time alone for today; older notes add the date, so days on a long trip
+                // don't look alike.
                 if let createdDate = entry.createdDate {
-                    Text(createdDate, style: .time)
+                    Text(createdDate, format: Calendar.current.isDateInToday(createdDate)
+                         ? .dateTime.hour().minute()
+                         : .dateTime.month(.abbreviated).day().hour().minute())
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }

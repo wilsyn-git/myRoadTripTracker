@@ -2,11 +2,6 @@ import SwiftUI
 import CoreData
 import CoreLocation
 
-enum PlateFilter: String, CaseIterable {
-    case all = "All"
-    case notSeen = "Not Seen"
-}
-
 struct PlateSightingsGrid: View {
     @ObservedObject var trip: Trip
     var locationManager: LocationManager
@@ -81,7 +76,7 @@ struct PlateSightingsGrid: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(.systemGray5), in: Capsule())
+        .background(.fill, in: .capsule)
     }
 
     private func sectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
@@ -126,25 +121,17 @@ struct PlateSightingsGrid: View {
                 Text("\(seen)/\(total)")
                     .fontWeight(.semibold)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
+            // The count above carries the meaning; the bar is decoration.
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(.fill)
+                .overlay(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(Color(.systemGray5))
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.96, green: 0.62, blue: 0.04),
-                                    Color(red: 0.98, green: 0.75, blue: 0.15)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * progress)
+                        .fill(LinearGradient(colors: [Theme.amber, Theme.gold],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .scaleEffect(x: progress, anchor: .leading)
                 }
-            }
-            .frame(height: 3)
+                .frame(height: 3)
+                .accessibilityHidden(true)
         }
     }
 

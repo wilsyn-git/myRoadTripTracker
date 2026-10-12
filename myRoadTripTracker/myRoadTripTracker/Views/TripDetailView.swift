@@ -1,11 +1,6 @@
 import SwiftUI
 import CoreData
 
-enum TripTab: String, CaseIterable {
-    case plates = "Plates"
-    case notes = "Notes"
-}
-
 struct TripDetailView: View {
     @ObservedObject var trip: Trip
     @Environment(\.dismiss) private var dismiss
@@ -196,25 +191,5 @@ struct TripDetailView: View {
         if let narrative { trip.recapNarrative = narrative }
         trip.recapGeneratedDate = Date()
         viewContext.save(contextInfo: "generateRecap")
-    }
-}
-
-// MARK: - Notes Tab
-
-struct NotesTabView: View {
-    @ObservedObject var trip: Trip
-    let currentUserName: String
-
-    var body: some View {
-        List {
-            ObservationsSection(trip: trip, currentUserName: currentUserName)
-        }
-        .onAppear { markObservationsViewed() }
-        .onDisappear { markObservationsViewed() }
-    }
-
-    private func markObservationsViewed() {
-        guard let tripID = trip.tripID?.uuidString else { return }
-        UserDefaults.standard.set(Date(), forKey: "lastViewedObservations_\(tripID)")
     }
 }

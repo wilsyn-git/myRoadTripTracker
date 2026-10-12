@@ -6,7 +6,7 @@ import SwiftUI
 
 private enum SnippetStyle {
     static func panel(closed: Bool) -> Color {
-        closed ? Color(white: 0.38) : Color(red: 0.2, green: 0.65, blue: 0.35)
+        closed ? Theme.closedGray : Theme.green
     }
 }
 

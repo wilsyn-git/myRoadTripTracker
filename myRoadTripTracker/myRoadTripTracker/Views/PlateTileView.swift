@@ -30,6 +30,7 @@ struct PlateTileView: View, Equatable {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
         .accessibilityHint("Double-tap to \(isSeen ? "view details" : "mark as seen")")
+        .sensoryFeedback(.success, trigger: isRevealing) { _, revealing in revealing }
         .onChange(of: isRevealing) { _, revealing in
             if revealing {
                 playRevealAnimation()
@@ -80,12 +81,12 @@ struct PlateTileView: View, Equatable {
         .padding(6)
         .frame(maxWidth: .infinity)
         .aspectRatio(1.0 / 1.1, contentMode: .fit)
-        .background(Color(.systemBackground))
+        .background(.background)
         .clipShape(.rect(cornerRadius: 8))
-        .overlay(
+        .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(.separator), lineWidth: 0.5)
-        )
+                .stroke(.separator, lineWidth: 0.5)
+        }
         .opacity(isSeen || isRevealing ? 1.0 : 0.45)
         .shadow(color: isSeen ? .black.opacity(0.06) : .clear, radius: 1, y: 1)
         .overlay(alignment: .topTrailing) {
@@ -121,7 +122,6 @@ struct PlateTileView: View, Equatable {
                 showCheckmark = true
                 tileScale = 1.0
             }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
         }
 
@@ -140,7 +140,6 @@ struct PlateTileView: View, Equatable {
         }
 
         showBurst = true
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
