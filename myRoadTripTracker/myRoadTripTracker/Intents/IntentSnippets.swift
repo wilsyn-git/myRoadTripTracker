@@ -1,14 +1,8 @@
 import SwiftUI
 
-// The cards Siri shows under its spoken line. They use the trip cards' green
-// panel with white text (`TripCardView`), so they read as TripSpotter on Siri's
+// The cards Siri shows under its spoken line. They use the trip list's green
+// panel (`Theme.panel`) with white text, so they read as TripSpotter on Siri's
 // light and dark panels alike. Spec: docs/superpowers/specs/2026-10-09-appIntentsDesign.md.
-
-private enum SnippetStyle {
-    static func panel(closed: Bool) -> Color {
-        closed ? Theme.closedGray : Theme.green
-    }
-}
 
 /// The frame every card shares: trip name on the left, a short fact on the right.
 private struct SnippetShell<Content: View>: View {
@@ -26,7 +20,7 @@ private struct SnippetShell<Content: View>: View {
                 Text(title).font(.headline).lineLimit(1)
                 Spacer(minLength: 8)
                 if !trailing.isEmpty {
-                    Text(trailing).font(.subheadline.weight(.semibold)).opacity(0.85).fixedSize()
+                    Text(trailing).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.panelSecondaryText).fixedSize()
                 }
             }
             content
@@ -34,7 +28,7 @@ private struct SnippetShell<Content: View>: View {
         .foregroundStyle(.white)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SnippetStyle.panel(closed: isClosed).gradient, in: .rect(cornerRadius: 16))
+        .background(Theme.panel(closed: isClosed), in: .rect(cornerRadius: 16))
     }
 }
 
@@ -54,19 +48,12 @@ private struct Flag: View {
     }
 }
 
-private struct TripRing: View {
+/// A trip's progress, stacked to fit beside a card's text.
+private struct TripProgress: View {
     let trip: TripSnapshot
 
     var body: some View {
-        let usTotal = TripSnapshot.usCodes.count
-        let caTotal = TripSnapshot.caCodes.count
-        DualProgressRingView(
-            usProgress: Double(trip.usSeen) / Double(usTotal),
-            usSeenCount: trip.usSeen,
-            caProgress: Double(trip.caSeen) / Double(caTotal),
-            caSeenCount: trip.caSeen,
-            diameter: 64
-        )
+        RegionProgressBars(usSeen: trip.usSeen, caSeen: trip.caSeen, axis: .vertical)
     }
 }
 
@@ -82,19 +69,14 @@ struct CountCard: View {
 
     var body: some View {
         SnippetShell(title: trip.name, isClosed: trip.isClosed) {
-            HStack(spacing: 16) {
-                TripRing(trip: trip)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(trip.usSeen) of \(TripSnapshot.usCodes.count) US").font(.title3.weight(.bold))
-                    Text("\(trip.caSeen) of \(TripSnapshot.caCodes.count) Canada").font(.subheadline.weight(.semibold)).opacity(0.85)
-                    HStack(spacing: -4) {
-                        ForEach(recentFlags, id: \.code) { sighting in
-                            if let location = Location.byCode[sighting.code] {
-                                Flag(assetName: location.flagImageName)
-                            }
+            VStack(alignment: .leading, spacing: 12) {
+                RegionProgressBars(usSeen: trip.usSeen, caSeen: trip.caSeen)
+                HStack(spacing: -4) {
+                    ForEach(recentFlags, id: \.code) { sighting in
+                        if let location = Location.byCode[sighting.code] {
+                            Flag(assetName: location.flagImageName)
                         }
                     }
-                    .padding(.top, 4)
                 }
             }
         }
@@ -114,11 +96,11 @@ struct MarkCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(location.name).font(.title3.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
                     if let who = IntentAnswers.cleanName(sighting?.spottedBy) {
-                        Text("by \(who)").font(.subheadline).opacity(0.85)
+                        Text("by \(who)").font(.subheadline).foregroundStyle(Theme.panelSecondaryText)
                     }
                 }
                 Spacer(minLength: 0)
-                TripRing(trip: trip)
+                TripProgress(trip: trip).frame(width: 110)
             }
         }
     }
@@ -137,7 +119,7 @@ struct SeenCard: View {
                     .opacity(sighting == nil ? 0.6 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(location.name).font(.title3.weight(.bold)).lineLimit(2).minimumScaleFactor(0.8)
-                    Text(status(sighting)).font(.subheadline).opacity(0.85)
+                    Text(status(sighting)).font(.subheadline).foregroundStyle(Theme.panelSecondaryText)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: sighting == nil ? "circle.dashed" : "checkmark.circle.fill")
@@ -170,7 +152,7 @@ private struct PlateChipSections: View {
     private func section(_ title: String, _ locations: [Location]) -> some View {
         if !locations.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.caption.weight(.bold)).opacity(0.85)
+                Text(title).font(.caption.weight(.bold)).foregroundStyle(Theme.panelSecondaryText)
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
                     ForEach(locations) { location in
                         Text(location.code)
@@ -214,7 +196,7 @@ struct PlatesLeftCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("All \(Location.allLocations.count) to go").font(.title3.weight(.bold))
                     Text("\(TripSnapshot.usCodes.count) US · \(TripSnapshot.caCodes.count) Canada")
-                        .font(.subheadline).opacity(0.85)
+                        .font(.subheadline).foregroundStyle(Theme.panelSecondaryText)
                 }
             } else {
                 PlateChipSections(locations: unseen)

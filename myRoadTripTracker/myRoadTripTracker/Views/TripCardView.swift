@@ -69,20 +69,6 @@ struct TripCardView: View {
         return generated > lastViewed
     }
 
-    /// "US 6/51": a small region label, then the count in the caller's font.
-    private func regionCount(_ region: String, seen: Int, total: Int) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
-            Text(region)
-                .font(.caption2.weight(.medium))
-                .opacity(0.7)
-            Text("\(seen)/\(total)")
-        }
-    }
-
-    private var cardColor: Color {
-        trip.isClosed ? Theme.closedGray : Theme.green
-    }
-
     var body: some View {
         let data = cardData
         let unseenRecap = hasUnseenRecap
@@ -168,29 +154,14 @@ struct TripCardView: View {
 
             Spacer(minLength: 8)
 
-            HStack(spacing: 10) {
-                DualProgressRingView(
-                    usProgress: Self.usTotalCount > 0 ? Double(data.usSeenCount) / Double(Self.usTotalCount) : 0,
-                    usSeenCount: data.usSeenCount,
-                    caProgress: Self.caTotalCount > 0 ? Double(data.caSeenCount) / Double(Self.caTotalCount) : 0,
-                    caSeenCount: data.caSeenCount
-                )
-                VStack(alignment: .leading, spacing: 0) {
-                    regionCount("US", seen: data.usSeenCount, total: Self.usTotalCount)
-                        .font(.subheadline.weight(.bold))
-                    regionCount("CA", seen: data.caSeenCount, total: Self.caTotalCount)
-                        .font(.footnote.weight(.semibold))
-                        .opacity(0.85)
-                }
-                .fontDesign(.rounded)
-                Spacer(minLength: 0)
-            }
+            // Stacked: two bars side by side don't fit a 160pt card.
+            RegionProgressBars(usSeen: data.usSeenCount, caSeen: data.caSeenCount, axis: .vertical)
         }
         .foregroundStyle(.white)
         .padding()
         .frame(maxWidth: .infinity)
         .tripCardAspect(fixed: !dynamicTypeSize.isAccessibilitySize)
-        .background(cardColor.gradient, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.panel(closed: trip.isClosed), in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(trip.name), \(data.usSeenCount) of \(Self.usTotalCount) US plates, \(data.caSeenCount) of \(Self.caTotalCount) Canadian plates\(trip.isClosed ? ", closed" : "")\(unseenRecap ? ", new recap available" : "")")
     }

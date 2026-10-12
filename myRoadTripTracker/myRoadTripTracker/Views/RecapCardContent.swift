@@ -48,13 +48,13 @@ struct RecapCardContent: View {
         .foregroundStyle(.white)
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.green.gradient, in: RoundedRectangle(cornerRadius: 20))
+        .background(Theme.panel(), in: RoundedRectangle(cornerRadius: 20))
     }
 
     private func statBlock(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value).font(.title2).bold()
-            Text(label).font(.caption).opacity(0.85)
+            Text(label).font(.caption).foregroundStyle(Theme.panelSecondaryText)
         }
         .accessibilityElement(children: .combine)
     }

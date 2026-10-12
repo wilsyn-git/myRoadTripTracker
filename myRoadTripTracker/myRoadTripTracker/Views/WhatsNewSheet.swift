@@ -15,7 +15,7 @@ struct WhatsNewSheet: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Theme.green.gradient, in: .circle)
+                        .background(Theme.panel(), in: .circle)
                         .accessibilityHidden(true)
                     Text("NEW")
                         .font(.caption2.weight(.heavy))
