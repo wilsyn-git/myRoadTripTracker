@@ -63,7 +63,7 @@ Move `IntentTrips.lastActivity(_:)` to a `nonisolated` `Trip` extension (`Models
 - Unseen-notes dot and new-recap sparkle, using the existing `unseenObservationCount` / `hasUnseenRecap` logic, moved with the card.
 - The five most recent flags (existing strip).
 - `RegionProgressBars` (§6) for US and CA.
-- Background: the shared panel gradient (§6). White foreground; secondary text uses `.secondary`-style hierarchy on white (e.g. `.white.opacity` replaced by `foregroundStyle(.white.secondary)`), never `.caption2`.
+- Background: the shared panel gradient (§6). White foreground; secondary text uses `Theme.panelSecondaryText` (white at 0.9, 5.1:1). Plain `.secondary` resolves to roughly white at 0.6 there, which is 3.1:1 and fails. Never `.caption2`.
 - Accessibility: one combined element with a label covering name, progress, shared state and unseen recap, as today.
 
 ### 4. Trip row (`TripRow`)
@@ -97,7 +97,7 @@ The same action set is available from swipe, long-press and the trip screen.
 - **`Theme.green` darkens** so that white text meets **≥ 4.5:1 at every point of the panel gradient**. Candidate base: `Color(red: 0.11, green: 0.46, blue: 0.24)` (5.7:1). Final value is chosen by measuring rendered pixels, not by assumption.
 - **Panel gradient.** Replace `Theme.green.gradient` and `Theme.closedGray.gradient` (SwiftUI's `.gradient` *lightens* the top) with a shared `Theme.panel(closed:)` that returns a `LinearGradient` from the base color down to a slightly darker shade. Used by the hero card, `RecapCardContent`, the Siri snippets (`SnippetStyle.panel`) and anything else that drew `Theme.green.gradient` with white text. `WhatsNewSheet`'s tint and icon backgrounds pick up the darker green automatically.
 - **`RegionProgressBars`** (new view, `Views/`): two labelled bars, "US 7/51" and "CA 1/13", single-hue (white on the green panel). It takes counts and totals, and its color comes from the environment's foreground style so it works on panels and plain backgrounds. Replaces `DualProgressRingView` in the hero card and in `IntentSnippets.TripRing` (renamed to suit). `DualProgressRingView.swift` is deleted.
-- Manual `.opacity(0.7/0.85)` for hierarchy becomes hierarchical styles; `.caption2` is removed from these views.
+- Manual `.opacity(0.7/0.85)` for hierarchy becomes hierarchical styles on plain backgrounds, and `Theme.panelSecondaryText` on panels; `.caption2` is removed from these views.
 - `Theme.closedGray` stays for the closed Siri snippet panel only. Past trips in the list are system rows and don't use it.
 
 ### 7. Out of scope
