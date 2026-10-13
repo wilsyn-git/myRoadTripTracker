@@ -16,15 +16,8 @@ struct PlateSightingsGrid: View {
     /// prompt). State reads stay current.
     @State private var spotterName = ""
 
-    /// Each seen region's sighting, keyed by code: one unsorted pass over the trip's set
-    /// rather than the sorted `plateSightingsArray` (#38). With duplicates (two phones
-    /// marking the same plate), the earliest sighting wins, as before.
-    private var sightingsByCode: [String: PlateSighting] {
-        let set = (trip.plateSightings as? Set<PlateSighting>) ?? []
-        return Dictionary(set.map { ($0.locationCode, $0) }) { first, second in
-            (first.seenDate ?? .distantPast) <= (second.seenDate ?? .distantPast) ? first : second
-        }
-    }
+    /// Each seen region's sighting, keyed by code; the earliest wins with duplicates.
+    private var sightingsByCode: [String: PlateSighting] { trip.firstSightingByCode }
 
     private func filtered(_ locations: [Location], seenCodes: Set<String>) -> [Location] {
         switch plateFilter {
