@@ -8,6 +8,9 @@ struct PlateChips: View {
     let isSeen: Bool
     /// Opens a seen plate's sighting. Without it, chips are display-only (Plate Passport, #78).
     var onTap: ((Location) -> Void)? = nil
+    /// Plates this trip saw before any other trip did. Their chips carry the 1ST badge, as
+    /// the open trip's tiles do, so the "N new" pill can be traced to plates (#79).
+    var firstEverCodes: Set<String> = []
 
     var body: some View {
         FlowLayout(spacing: 6) {
@@ -16,12 +19,14 @@ struct PlateChips: View {
                     Button {
                         onTap(location)
                     } label: {
-                        PlateChip(location: location, isSeen: true)
+                        PlateChip(location: location, isSeen: true,
+                                  isFirstEver: firstEverCodes.contains(location.code))
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Double-tap to view details")
                 } else {
-                    PlateChip(location: location, isSeen: isSeen)
+                    PlateChip(location: location, isSeen: isSeen,
+                              isFirstEver: isSeen && firstEverCodes.contains(location.code))
                 }
             }
         }
@@ -31,6 +36,7 @@ struct PlateChips: View {
 private struct PlateChip: View {
     let location: Location
     let isSeen: Bool
+    var isFirstEver = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -44,6 +50,9 @@ private struct PlateChip: View {
             Text(location.code)
                 .font(.system(.caption, design: .monospaced))
                 .bold()
+            if isFirstEver {
+                FirstEverBadge()
+            }
         }
         .foregroundStyle(isSeen ? .primary : .secondary)
         .padding(.leading, 5)
@@ -52,7 +61,7 @@ private struct PlateChip: View {
         .background(.fill, in: .capsule)
         .contentShape(.capsule)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
+        .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")\(isFirstEver ? ", first time ever" : "")")
     }
 }
 

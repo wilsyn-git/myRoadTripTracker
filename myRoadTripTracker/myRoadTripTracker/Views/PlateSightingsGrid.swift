@@ -121,7 +121,7 @@ struct PlateSightingsGrid: View {
     @ViewBuilder
     private func sectionView(title: String, locations: [Location], seenCodes: Set<String>, firstCodes: Set<String>) -> some View {
         if trip.isClosed {
-            closedSectionView(title: title, locations: locations, seenCodes: seenCodes)
+            closedSectionView(title: title, locations: locations, seenCodes: seenCodes, firstCodes: firstCodes)
         } else {
             openSectionView(title: title, locations: locations, seenCodes: seenCodes, firstCodes: firstCodes)
         }
@@ -150,8 +150,9 @@ struct PlateSightingsGrid: View {
     }
 
     /// A closed trip can't change, so it reads as a result: the plates seen, then the ones
-    /// missed, both as compact chips (#70, #74). The filter doesn't apply here.
-    private func closedSectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+    /// missed, both as compact chips (#70, #74). Plates the trip saw first ever keep their
+    /// 1ST badge (#79). The filter doesn't apply here.
+    private func closedSectionView(title: String, locations: [Location], seenCodes: Set<String>, firstCodes: Set<String>) -> some View {
         let seen = locations.filter { seenCodes.contains($0.code) }
         let missed = locations.filter { !seenCodes.contains($0.code) }
 
@@ -160,9 +161,9 @@ struct PlateSightingsGrid: View {
 
             if !seen.isEmpty {
                 groupLabel("Seen \u{00B7} \(seen.count)")
-                PlateChips(locations: seen, isSeen: true) { location in
+                PlateChips(locations: seen, isSeen: true, onTap: { location in
                     sightingToInspect = sighting(for: location)
-                }
+                }, firstEverCodes: firstCodes)
             }
             if !missed.isEmpty {
                 groupLabel("Not seen \u{00B7} \(missed.count)")
