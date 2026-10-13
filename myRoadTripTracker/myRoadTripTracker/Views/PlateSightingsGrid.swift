@@ -52,6 +52,9 @@ struct PlateSightingsGrid: View {
         // would be one (spec §3).
         let showsFirsts = history.otherTripCount(than: trip) > 0
         let firstCodes: Set<String> = showsFirsts ? seenCodes.filter { history.isFirstEver($0, on: trip) } : []
+        let pastTrips = history.otherTripCount(than: trip)
+        // Two other trips before "usually" means anything (spec §4).
+        let watchFor = trip.isClosed || pastTrips < 2 ? [] : history.watchFor(on: trip)
 
         ScrollView {
             VStack(spacing: 16) {
@@ -70,6 +73,11 @@ struct PlateSightingsGrid: View {
                     .background(.fill, in: .capsule)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
+                }
+                if !watchFor.isEmpty {
+                    WatchForStrip(plates: watchFor, pastTripCount: pastTrips) { location in
+                        markAsSeen(location)
+                    }
                 }
                 sectionView(title: "US States & DC", locations: Location.usStates, seenCodes: seenCodes, firstCodes: firstCodes)
                 sectionView(title: "Canada", locations: Location.canadaLocations, seenCodes: seenCodes, firstCodes: firstCodes)
