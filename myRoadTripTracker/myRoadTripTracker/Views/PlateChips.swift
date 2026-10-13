@@ -1,17 +1,18 @@
 import SwiftUI
 
 /// A closed trip's plates as small chips (flag and code) that wrap across lines (#70, #74).
-/// Seen plates are in colour and open their sighting when tapped; missed ones are grey and
+/// Seen plates are in colour and, given `onTap`, open their sighting; missed ones are grey and
 /// read-only, since a closed trip can't mark plates.
 struct PlateChips: View {
     let locations: [Location]
     let isSeen: Bool
-    var onTap: (Location) -> Void = { _ in }
+    /// Opens a seen plate's sighting. Without it, chips are display-only (Plate Passport, #78).
+    var onTap: ((Location) -> Void)? = nil
 
     var body: some View {
         FlowLayout(spacing: 6) {
             ForEach(locations) { location in
-                if isSeen {
+                if isSeen, let onTap {
                     Button {
                         onTap(location)
                     } label: {
@@ -20,7 +21,7 @@ struct PlateChips: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Double-tap to view details")
                 } else {
-                    PlateChip(location: location, isSeen: false)
+                    PlateChip(location: location, isSeen: isSeen)
                 }
             }
         }

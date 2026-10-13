@@ -51,3 +51,17 @@ extension NSPersistentStore {
         return false
     }
 }
+
+// MARK: - Change Notifications
+
+extension Notification {
+    /// Whether an `NSManagedObjectContextObjectsDidChange` touched a trip or a plate
+    /// sighting: what the trip list ranks by (#65) and what Plate Passport counts (#78).
+    var touchesTripsOrSightings: Bool {
+        let keys = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey, NSRefreshedObjectsKey]
+        return keys.contains { key in
+            guard let objects = userInfo?[key] as? Set<NSManagedObject> else { return false }
+            return objects.contains { $0 is Trip || $0 is PlateSighting }
+        }
+    }
+}
