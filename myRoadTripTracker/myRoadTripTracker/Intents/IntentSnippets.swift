@@ -204,33 +204,3 @@ struct PlatesLeftCard: View {
         }
     }
 }
-
-struct TopSpotterCard: View {
-    let trip: TripSnapshot
-
-    var body: some View {
-        let tally = Array(trip.tally.prefix(6))
-        let topCount = tally.first(where: { !$0.isUnknown })?.count
-        SnippetShell(title: trip.name, trailing: trip.sightings.count == 1 ? "1 plate" : "\(trip.sightings.count) plates", isClosed: trip.isClosed) {
-            if tally.isEmpty {
-                Text("No plates yet").font(.title3.weight(.bold))
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(tally, id: \.name) { spotter in
-                        HStack(spacing: 8) {
-                            Image(systemName: "crown.fill")
-                                .font(.caption)
-                                .foregroundStyle(.yellow)
-                                .opacity(!spotter.isUnknown && spotter.count == topCount ? 1 : 0)
-                                .accessibilityHidden(true)
-                            Text(spotter.name).font(.body.weight(.semibold)).lineLimit(1)
-                                .opacity(spotter.isUnknown ? 0.7 : 1)
-                            Spacer(minLength: 8)
-                            Text("\(spotter.count)").font(.body.weight(.bold).monospacedDigit())
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

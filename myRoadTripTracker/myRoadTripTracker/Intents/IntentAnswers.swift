@@ -15,14 +15,6 @@ struct TripSnapshot {
     let sightings: [Sighting]
 }
 
-/// One row of the "who's spotted the most" tally.
-struct Spotter: Equatable {
-    let name: String
-    let count: Int
-    /// Sightings with no `spottedByName`. Shown last, never leads the spoken line.
-    let isUnknown: Bool
-}
-
 extension TripSnapshot {
     static let usCodes = Set(Location.usStates.map(\.code))
     static let caCodes = Set(Location.canadaLocations.map(\.code))
@@ -51,26 +43,6 @@ extension TripSnapshot {
 
     func sighting(of code: String) -> Sighting? {
         sightings.first { $0.code == code }
-    }
-
-    /// Spotters by count (then name), with an "Unknown" row last for uncredited sightings.
-    var tally: [Spotter] {
-        var counts: [String: Int] = [:]
-        var unknown = 0
-        for sighting in sightings {
-            if let name = IntentAnswers.cleanName(sighting.spottedBy) {
-                counts[name, default: 0] += 1
-            } else {
-                unknown += 1
-            }
-        }
-        var ranked = counts
-            .map { Spotter(name: $0.key, count: $0.value, isUnknown: false) }
-            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name.localizedCompare($1.name) == .orderedAscending }
-        if unknown > 0 {
-            ranked.append(Spotter(name: "Unknown", count: unknown, isUnknown: true))
-        }
-        return ranked
     }
 }
 
@@ -131,23 +103,6 @@ enum IntentAnswers {
         let caLeft = unseen.count - usLeft
         let parts = [usLeft > 0 ? states(usLeft) : nil, caLeft > 0 ? "\(caLeft) from Canada" : nil].compactMap { $0 }
         return "\(list(parts)) to go — they're on the card."
-    }
-
-    static func topSpotter(_ trip: TripSnapshot) -> String {
-        guard !trip.sightings.isEmpty else { return "Nobody's spotted a plate on \(trip.name) yet." }
-        let named = trip.tally.filter { !$0.isUnknown }
-        guard let top = named.first else { return "Nobody's been credited with a plate on \(trip.name) yet." }
-        let leaders = named.filter { $0.count == top.count }
-        if leaders.count > 1 {
-            return "\(list(leaders.map(\.name))) are tied with \(top.count)."
-        }
-        if named.count == 1 {
-            return top.count == trip.sightings.count
-                ? "\(top.name) has spotted all \(top.count)."
-                : "\(top.name) has spotted \(top.count)."
-        }
-        let second = named[1]
-        return "\(top.name) leads \(trip.name) with \(top.count). \(second.name) has \(second.count)."
     }
 
     // MARK: Helpers shared by every answer
