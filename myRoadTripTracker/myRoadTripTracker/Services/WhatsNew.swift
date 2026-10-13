@@ -4,6 +4,7 @@ import Foundation
 struct Announcement: Identifiable, Equatable {
     enum ID: String {
         case siri
+        case passport
     }
 
     struct Line: Equatable {
@@ -33,13 +34,19 @@ enum WhatsNew {
             .init(text: "Or ask \u{201C}How many states have we seen in TripSpotter?\u{201D} The first time, Siri asks to turn on TripSpotter\u{2019}s shortcuts. Say yes."),
             .init(text: "Missed it? In the Shortcuts app, open TripSpotter, tap \u{24D8} and turn Siri on."),
         ]),
+        Announcement(id: .passport, title: "Plate Passport", systemImage: "globe.americas.fill", lines: [
+            .init(text: "See what all your trips add up to: the plates you always see, the ones you never have, and your record trip."),
+            .init(text: "Tap Plate Passport on the Road Trips screen.", isKey: true),
+            .init(text: "Spot a plate none of your trips has seen and it gets a gold 1ST badge."),
+            .init(text: "On a trip, Watch for shows the plates you usually see but haven't yet."),
+        ]),
     ]
 
-    /// The next unseen card, or nil. Nothing until the user has a trip:
-    /// Siri has nothing to answer about without one.
-    static func next(seen: Set<String>, hasTrips: Bool) -> Announcement? {
+    /// The next unseen card, or nil. Nothing until the user has a trip: Siri has nothing to
+    /// answer about without one. The Plate Passport card waits until its row shows (#78).
+    static func next(seen: Set<String>, hasTrips: Bool, showsPassport: Bool) -> Announcement? {
         guard hasTrips else { return nil }
-        return all.first { !seen.contains($0.id.rawValue) }
+        return all.first { !seen.contains($0.id.rawValue) && ($0.id != .passport || showsPassport) }
     }
 }
 

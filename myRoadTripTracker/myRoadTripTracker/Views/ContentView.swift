@@ -405,7 +405,8 @@ struct ContentView: View {
               IntentRoute.shared.pendingTrip == nil,
               !showingDeleteAlert, !showingLeaveAlert, leaveError == nil,
               persistenceController.shareAcceptanceError == nil else { return }
-        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
+        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty,
+                                       showsPassport: PlateHistory(trips: trips).showsPassport)
     }
 
 }
