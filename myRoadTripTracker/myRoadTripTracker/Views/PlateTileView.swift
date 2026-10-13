@@ -78,9 +78,12 @@ struct PlateTileView: View, Equatable {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .padding(6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
+        // Fill the grid column at the content's own height. A fixed aspect ratio here got
+        // no height from the grid, so it sized the tile from its content and left it
+        // narrower than its column (#72).
         .frame(maxWidth: .infinity)
-        .aspectRatio(1.0 / 1.1, contentMode: .fit)
         .background(.background)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
