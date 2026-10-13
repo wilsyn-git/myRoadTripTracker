@@ -69,7 +69,7 @@ The app is **Core Data + `NSPersistentCloudKitContainer`** with a **two-store** 
 
 ```
 App/         myRoadTripTrackerApp.swift, AppDelegate.swift (+SceneDelegate)
-Intents/     App Intents for Siri/Spotlight: PlateRegion, TripEntity, the six
+Intents/     App Intents for Siri/Spotlight: PlateRegion, TripEntity, the five
              intents, IntentAnswers (spoken lines), IntentSnippets (cards),
              TripSpotterShortcuts (phrases)
 Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entities), Trip+Activity

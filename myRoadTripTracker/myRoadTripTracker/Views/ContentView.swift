@@ -253,7 +253,7 @@ struct ContentView: View {
             navigationPath.append(objectID)
         }
         .task(id: trips.map(\.name)) {
-            // Keeps trip-name phrases ("Who's winning Utah…") current; debounced so a rename doesn't refresh per keystroke.
+            // Keeps trip-name phrases ("What's left on Utah…") current; debounced so a rename doesn't refresh per keystroke.
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             TripSpotterShortcuts.updateAppShortcutParameters()
         }

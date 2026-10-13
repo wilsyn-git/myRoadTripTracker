@@ -31,10 +31,6 @@ struct RecapCardContent: View {
                 }
             }
 
-            if let mvp = stats.mvp {
-                Label("MVP: \(mvp.name) (\(mvp.count))", systemImage: "trophy.fill")
-                    .font(.headline)
-            }
             if !stats.rareCatches.isEmpty {
                 Label("Rare: \(stats.rareCatches.joined(separator: ", "))", systemImage: "star.fill")
                     .font(.subheadline)

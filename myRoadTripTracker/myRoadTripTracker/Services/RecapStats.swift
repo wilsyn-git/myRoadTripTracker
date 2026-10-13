@@ -9,15 +9,12 @@ struct RecapStats {
     let caTotalCount: Int
     let totalSightings: Int           // distinct plates; a sync duplicate counts once (#77)
     let dayCount: Int                 // inclusive days from first to last sighting; 0 if none
-    let spotterTallies: [SpotterTally] // sorted by count desc, then name
     let rareCatches: [String]          // location NAMES of rare regions caught
     let observationCount: Int
     let observationsWithPhoto: Int
 
     /// Region codes considered "rare" (remote / low-population).
     static let rareCodes: Set<String> = ["AK", "HI", "NL", "PE", "NT", "NU", "YT"]
-
-    var mvp: SpotterTally? { spotterTallies.first }
 
     /// True when there is genuinely nothing to recap.
     var isEmpty: Bool { totalSightings == 0 && observationCount == 0 }
@@ -50,17 +47,6 @@ struct RecapStats {
             dayCount = 0
         }
 
-        // Per-spotter tallies, crediting each plate once: to whoever marked it first.
-        var counts: [String: Int] = [:]
-        for s in firstSightings.values {
-            let name = s.spottedByName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard !name.isEmpty else { continue }
-            counts[name, default: 0] += 1
-        }
-        spotterTallies = counts
-            .map { SpotterTally(name: $0.key, count: $0.value) }
-            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
-
         // Rare catches (unique region names, ordered by the canonical list).
         let seenRareCodes = codes.intersection(Self.rareCodes)
         rareCatches = Location.allLocations
@@ -80,9 +66,6 @@ struct RecapStats {
         } else if regions > 0 {
             parts.append("\(regions) plate\(regions == 1 ? "" : "s") spotted.")
         }
-        if let mvp {
-            parts.append("\(mvp.name) led the way with \(mvp.count).")
-        }
         if !rareCatches.isEmpty {
             parts.append("Rare finds: \(rareCatches.joined(separator: ", ")).")
         }
@@ -100,7 +83,6 @@ struct RecapStats {
         lines.append("Canadian provinces/territories spotted: \(caSeenCount) of \(caTotalCount)")
         lines.append("Total plates: \(totalSightings)")
         if dayCount > 0 { lines.append("Trip length: \(dayCount) days") }
-        if let mvp { lines.append("Top spotter: \(mvp.name) with \(mvp.count) plates") }
         if !rareCatches.isEmpty { lines.append("Rare catches: \(rareCatches.joined(separator: ", "))") }
         lines.append("Observations recorded: \(observationCount) (\(observationsWithPhoto) with photos)")
         return lines.joined(separator: "\n")

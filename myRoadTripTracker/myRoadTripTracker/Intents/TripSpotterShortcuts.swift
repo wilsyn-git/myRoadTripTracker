@@ -84,19 +84,6 @@ nonisolated struct TripSpotterShortcuts: AppShortcutsProvider {
             systemImageName: "list.bullet"
         )
         AppShortcut(
-            intent: TopSpotterIntent(),
-            phrases: [
-                "Who's spotted the most in \(.applicationName)",
-                "Who's winning in \(.applicationName)",
-                "Who's ahead in \(.applicationName)",
-                "Who's winning \(\.$trip) in \(.applicationName)",
-                "Who's winning the \(\.$trip) trip in \(.applicationName)",
-                "Who's ahead on \(\.$trip) in \(.applicationName)",
-            ],
-            shortTitle: "Top Spotter",
-            systemImageName: "crown"
-        )
-        AppShortcut(
             intent: OpenTripIntent(),
             phrases: [
                 "Open my trip in \(.applicationName)",
