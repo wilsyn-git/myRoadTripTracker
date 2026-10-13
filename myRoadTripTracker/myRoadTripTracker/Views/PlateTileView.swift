@@ -106,7 +106,7 @@ struct PlateTileView: View, Equatable {
         .overlay(alignment: .topLeading) {
             if isFirstEver && showCheckmark {
                 FirstEverBadge()
-                    .offset(x: -4, y: -6)
+                    .offset(x: 4, y: -7)
             }
         }
         .overlay {

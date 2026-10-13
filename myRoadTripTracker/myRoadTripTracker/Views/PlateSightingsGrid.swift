@@ -84,6 +84,7 @@ struct PlateSightingsGrid: View {
             if let firstEver {
                 FirstEverToast(location: firstEver, collectedCount: firstEverCount)
                     .padding(.bottom, 12)
+                    .allowsHitTesting(false)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .task(id: firstEver) {
                         try? await Task.sleep(for: .seconds(3))
