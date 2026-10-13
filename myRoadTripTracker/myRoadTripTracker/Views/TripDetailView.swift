@@ -103,7 +103,8 @@ struct TripDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if selectedTab == .plates {
+            // A closed trip groups its plates into seen and not seen, so there's nothing to filter (#70).
+            if selectedTab == .plates, !trip.isClosed {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         // A Picker inside a Menu renders the options with a native
