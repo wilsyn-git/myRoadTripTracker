@@ -265,6 +265,7 @@ struct PlatePassportView: View {
                 .bold()
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
+                .accessibilityAddTraits(.isHeader)
             content()
         }
     }

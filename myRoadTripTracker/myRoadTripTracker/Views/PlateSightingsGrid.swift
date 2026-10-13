@@ -95,7 +95,8 @@ struct PlateSightingsGrid: View {
                     .allowsHitTesting(false)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .task(id: firstEver) {
-                        try? await Task.sleep(for: .seconds(3))
+                        // A cancelled sleep means a newer toast replaced this one; don't wipe it.
+                        do { try await Task.sleep(for: .seconds(3)) } catch { return }
                         withAnimation { self.firstEver = nil }
                     }
             }

@@ -21,6 +21,7 @@ struct WatchForStrip: View {
             layout {
                 Text("Watch for")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 if !typeSize.isAccessibilitySize {
                     Spacer()
                 }
