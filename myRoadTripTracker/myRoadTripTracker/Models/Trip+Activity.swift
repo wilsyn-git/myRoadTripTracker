@@ -15,6 +15,23 @@ nonisolated extension Trip {
         return first...last
     }
 
+    /// The plates seen on this trip, one per region. Sync can leave two sightings of one
+    /// plate (two phones marking it at once), so anything that counts plates counts these (#77).
+    var seenRegionCodes: Set<String> {
+        Set(((plateSightings as? Set<PlateSighting>) ?? []).map(\.locationCode))
+    }
+
+    /// Each seen region's sighting, keyed by code, in one unsorted pass (#38). With
+    /// duplicates, the earliest dated sighting wins, so it's the one the grid opens and the
+    /// recap credits. A partly synced record has no date yet, so it loses to any dated one
+    /// instead of passing for the earliest and costing the trip its first-ever credit (#77).
+    var firstSightingByCode: [String: PlateSighting] {
+        let set = (plateSightings as? Set<PlateSighting>) ?? []
+        return Dictionary(set.map { ($0.locationCode, $0) }) { first, second in
+            (first.seenDate ?? .distantFuture) <= (second.seenDate ?? .distantFuture) ? first : second
+        }
+    }
+
     private var sightingDates: [Date] {
         ((plateSightings as? Set<PlateSighting>) ?? []).compactMap(\.seenDate)
     }

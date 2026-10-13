@@ -76,7 +76,7 @@ Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entiti
 Services/    PersistenceController, CoreDataHelpers, CloudKitUserHelper,
              LocationManager, Location (64 NA regions), ImageProcessor,
              IntentRoute, WhatsNew, TripShareItem, TripListSections,
-             TripLifecycle, TripBadges
+             TripLifecycle, TripBadges, PlateHistory, PlateCount, TripPlateTotal
 Views/       SwiftUI views (ContentView, TripHeroCard, TripRow, TripDetailView,
              PlateSightings*, Observations*, ParticipantsView, ...)
 Resources/   Info.plist, .entitlements, .xcdatamodeld, Assets.xcassets,

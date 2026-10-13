@@ -9,7 +9,7 @@ extension Trip {
     /// Distinct US and Canadian plates seen. Distinct, because sync can leave two sightings
     /// of one plate; `TripSnapshot` counts the same way, so Siri and the list agree.
     var regionCounts: (us: Int, ca: Int) {
-        let codes = Set(((plateSightings as? Set<PlateSighting>) ?? []).map(\.locationCode))
+        let codes = seenRegionCodes
         return (codes.intersection(Self.usCodes).count, codes.intersection(Self.caCodes).count)
     }
 

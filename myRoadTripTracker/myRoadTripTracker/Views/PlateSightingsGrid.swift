@@ -15,16 +15,16 @@ struct PlateSightingsGrid: View {
     /// a stored property there would credit a stale name (e.g. from before the join
     /// prompt). State reads stay current.
     @State private var spotterName = ""
+    /// Every trip, for what the history says about this one: first-ever plates and what to
+    /// watch for (#78). Reads in `markAsSeen` see the current results, not a past render's.
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \Trip.createdDate, ascending: false)])
+    private var allTrips: FetchedResults<Trip>
+    /// The plate behind the "First time ever" banner, and the collection size it made.
+    @State private var firstEver: Location?
+    @State private var firstEverCount = 0
 
-    /// Each seen region's sighting, keyed by code: one unsorted pass over the trip's set
-    /// rather than the sorted `plateSightingsArray` (#38). With duplicates (two phones
-    /// marking the same plate), the earliest sighting wins, as before.
-    private var sightingsByCode: [String: PlateSighting] {
-        let set = (trip.plateSightings as? Set<PlateSighting>) ?? []
-        return Dictionary(set.map { ($0.locationCode, $0) }) { first, second in
-            (first.seenDate ?? .distantPast) <= (second.seenDate ?? .distantPast) ? first : second
-        }
-    }
+    /// Each seen region's sighting, keyed by code; the earliest wins with duplicates.
+    private var sightingsByCode: [String: PlateSighting] { trip.firstSightingByCode }
 
     private func filtered(_ locations: [Location], seenCodes: Set<String>) -> [Location] {
         switch plateFilter {
@@ -47,20 +47,59 @@ struct PlateSightingsGrid: View {
         // Build the seen-code lookup once per render so each tile does an O(1) membership
         // check instead of scanning every sighting.
         let seenCodes = Set(sightingsByCode.keys)
+        let history = PlateHistory(trips: allTrips)
+        // Firsts mean something only next to another trip; on your first trip every plate
+        // would be one (spec §3).
+        let showsFirsts = history.otherTripCount(than: trip) > 0
+        let firstCodes: Set<String> = showsFirsts ? seenCodes.filter { history.isFirstEver($0, on: trip) } : []
+        let pastTrips = history.otherTripCount(than: trip)
+        // Two other trips before "usually" means anything (spec §4).
+        let watchFor = trip.isClosed || pastTrips < 2 ? [] : history.watchFor(on: trip)
 
         ScrollView {
             VStack(spacing: 16) {
                 if trip.isClosed {
                     closedTripBanner
                 }
-                sectionView(title: "US States & DC", locations: Location.usStates, seenCodes: seenCodes)
-                sectionView(title: "Canada", locations: Location.canadaLocations, seenCodes: seenCodes)
+                if !firstCodes.isEmpty {
+                    HStack(spacing: 6) {
+                        FirstEverBadge()
+                        Text("\(firstCodes.count) new to your collection this trip")
+                            .font(.subheadline)
+                            .bold()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.fill, in: .capsule)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                }
+                if !watchFor.isEmpty {
+                    WatchForStrip(plates: watchFor, pastTripCount: pastTrips) { location in
+                        markAsSeen(location)
+                    }
+                }
+                sectionView(title: "US States & DC", locations: Location.usStates, seenCodes: seenCodes, firstCodes: firstCodes)
+                sectionView(title: "Canada", locations: Location.canadaLocations, seenCodes: seenCodes, firstCodes: firstCodes)
             }
             .padding(.horizontal)
             .padding(.top, 8)
         }
         .sheet(item: $sightingToInspect) { sighting in
             PlateSightingDetailSheet(sighting: sighting, trip: trip)
+        }
+        .overlay(alignment: .bottom) {
+            if let firstEver {
+                FirstEverToast(location: firstEver, collectedCount: firstEverCount)
+                    .padding(.bottom, 12)
+                    .allowsHitTesting(false)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .task(id: firstEver) {
+                        // A cancelled sleep means a newer toast replaced this one; don't wipe it.
+                        do { try await Task.sleep(for: .seconds(3)) } catch { return }
+                        withAnimation { self.firstEver = nil }
+                    }
+            }
         }
         .onChange(of: currentUserName, initial: true) { _, name in
             spotterName = name
@@ -80,15 +119,15 @@ struct PlateSightingsGrid: View {
     }
 
     @ViewBuilder
-    private func sectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+    private func sectionView(title: String, locations: [Location], seenCodes: Set<String>, firstCodes: Set<String>) -> some View {
         if trip.isClosed {
             closedSectionView(title: title, locations: locations, seenCodes: seenCodes)
         } else {
-            openSectionView(title: title, locations: locations, seenCodes: seenCodes)
+            openSectionView(title: title, locations: locations, seenCodes: seenCodes, firstCodes: firstCodes)
         }
     }
 
-    private func openSectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+    private func openSectionView(title: String, locations: [Location], seenCodes: Set<String>, firstCodes: Set<String>) -> some View {
         let visible = filtered(locations, seenCodes: seenCodes)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
@@ -97,7 +136,7 @@ struct PlateSightingsGrid: View {
 
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(visible) { location in
-                    tile(for: location, seenCodes: seenCodes)
+                    tile(for: location, seenCodes: seenCodes, firstCodes: firstCodes)
                         .contextMenu {
                             if seenCodes.contains(location.code) {
                                 Button("Remove sighting", role: .destructive) {
@@ -141,11 +180,12 @@ struct PlateSightingsGrid: View {
             .padding(.top, 4)
     }
 
-    private func tile(for location: Location, seenCodes: Set<String>) -> some View {
+    private func tile(for location: Location, seenCodes: Set<String>, firstCodes: Set<String>) -> some View {
         PlateTileView(
             location: location,
             isSeen: seenCodes.contains(location.code),
             isRevealing: revealingCodes.contains(location.code),
+            isFirstEver: firstCodes.contains(location.code),
             onTapUnseen: { markAsSeen(location) },
             onTapSeen: { sightingToInspect = sighting(for: location) }
         )
@@ -187,6 +227,11 @@ struct PlateSightingsGrid: View {
         guard !trip.isDeleted, trip.managedObjectContext != nil,
               !trip.isClosed, !isSeen(location) else { return }
 
+        // Checked before the save, while this trip doesn't have the plate yet. Only local
+        // marks get the banner; a collaborator's or Siri's arrive without one (spec §3).
+        let history = PlateHistory(trips: allTrips)
+        let isFirstEver = history.otherTripCount(than: trip) > 0 && history.tripCounts[location.code] == nil
+
         let recent = locationManager.recentLocation(maxAge: 60, maxAccuracy: 100)
         revealingCodes.insert(location.code)
 
@@ -200,6 +245,13 @@ struct PlateSightingsGrid: View {
         )
         sighting.trip = trip
         viewContext.save(contextInfo: "markAsSeen")
+        if isFirstEver {
+            withAnimation(.spring) {
+                firstEverCount = history.collected.count + 1
+                firstEver = location
+            }
+            AccessibilityNotification.Announcement("First time ever: \(location.name)").post()
+        }
 
         if recent == nil {
             let sightingID = sighting.objectID

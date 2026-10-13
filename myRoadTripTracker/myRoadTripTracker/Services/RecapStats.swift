@@ -7,7 +7,7 @@ struct RecapStats {
     let usTotalCount: Int
     let caSeenCount: Int
     let caTotalCount: Int
-    let totalSightings: Int
+    let totalSightings: Int           // distinct plates; a sync duplicate counts once (#77)
     let dayCount: Int                 // inclusive days from first to last sighting; 0 if none
     let spotterTallies: [SpotterTally] // sorted by count desc, then name
     let rareCatches: [String]          // location NAMES of rare regions caught
@@ -31,9 +31,14 @@ struct RecapStats {
 
         usTotalCount = usCodes.count
         caTotalCount = caCodes.count
-        usSeenCount = sightings.filter { usCodes.contains($0.locationCode) }.count
-        caSeenCount = sightings.filter { caCodes.contains($0.locationCode) }.count
-        totalSightings = sightings.count
+
+        // One sighting per plate: a sync duplicate would otherwise count twice, here and in
+        // the AI narrative, and disagree with the trip list (#77).
+        let firstSightings = trip.firstSightingByCode
+        let codes = Set(firstSightings.keys)
+        usSeenCount = codes.intersection(usCodes).count
+        caSeenCount = codes.intersection(caCodes).count
+        totalSightings = codes.count
 
         // Day span (inclusive). plateSightingsArray is sorted ascending by seenDate.
         let dates = sightings.compactMap(\.seenDate)
@@ -45,9 +50,9 @@ struct RecapStats {
             dayCount = 0
         }
 
-        // Per-spotter tallies.
+        // Per-spotter tallies, crediting each plate once: to whoever marked it first.
         var counts: [String: Int] = [:]
-        for s in sightings {
+        for s in firstSightings.values {
             let name = s.spottedByName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !name.isEmpty else { continue }
             counts[name, default: 0] += 1
@@ -57,7 +62,7 @@ struct RecapStats {
             .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
 
         // Rare catches (unique region names, ordered by the canonical list).
-        let seenRareCodes = Set(sightings.map(\.locationCode)).intersection(Self.rareCodes)
+        let seenRareCodes = codes.intersection(Self.rareCodes)
         rareCatches = Location.allLocations
             .filter { seenRareCodes.contains($0.code) }
             .map(\.name)

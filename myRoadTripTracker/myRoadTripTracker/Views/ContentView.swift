@@ -130,6 +130,7 @@ struct ContentView: View {
     private var tripList: some View {
         _ = listRevision // Read so a bump re-runs this body; see `listRevision`.
         let sections = TripListSections(trips: trips, matching: searchText)
+        let history = PlateHistory(trips: trips)
         return List {
             if !searchText.isEmpty {
                 // A search result isn't "current": show every matching open trip as a plain
@@ -168,6 +169,14 @@ struct ContentView: View {
                     ForEach(sections.otherOpen) { trip in tripRow(trip) }
                 }
             }
+            if searchText.isEmpty, history.showsPassport {
+                Section {
+                    // A link, so the whole row is tappable and gets the list's chevron.
+                    NavigationLink(value: PassportRoute.passport) {
+                        PassportRow(history: history)
+                    }
+                }
+            }
             ForEach(Array(sections.pastYears.enumerated()), id: \.element.id) { index, pastYear in
                 Section {
                     ForEach(pastYear.trips) { trip in tripRow(trip) }
@@ -182,6 +191,9 @@ struct ContentView: View {
             if !enabled { searchText = "" }
         }
         .navigationTitle("Road Trips")
+        .navigationDestination(for: PassportRoute.self) { _ in
+            PlatePassportView()
+        }
         .navigationDestination(for: NSManagedObjectID.self) { objectID in
             // `existingObject(with:)`, not `object(with:)`: the latter hands back a fault for
             // a trip that's already gone, which opened as an empty screen (#19, #66).
@@ -248,16 +260,7 @@ struct ContentView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: viewContext)
         ) { note in
-            if changesTripOrSighting(note) { listRevision &+= 1 }
-        }
-    }
-
-    /// Whether the change touched what the list ranks by: a trip itself or its plate sightings (#65).
-    private func changesTripOrSighting(_ note: Notification) -> Bool {
-        let keys = [NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey, NSRefreshedObjectsKey]
-        return keys.contains { key in
-            guard let objects = note.userInfo?[key] as? Set<NSManagedObject> else { return false }
-            return objects.contains { $0 is Trip || $0 is PlateSighting }
+            if note.touchesTripsOrSightings { listRevision &+= 1 }
         }
     }
 
@@ -402,7 +405,8 @@ struct ContentView: View {
               IntentRoute.shared.pendingTrip == nil,
               !showingDeleteAlert, !showingLeaveAlert, leaveError == nil,
               persistenceController.shareAcceptanceError == nil else { return }
-        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty)
+        whatsNewCard = WhatsNew.next(seen: WhatsNewStore.seen, hasTrips: !trips.isEmpty,
+                                       showsPassport: PlateHistory(trips: trips).showsPassport)
     }
 
 }

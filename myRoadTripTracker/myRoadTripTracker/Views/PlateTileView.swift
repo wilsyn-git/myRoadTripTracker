@@ -8,6 +8,8 @@ struct PlateTileView: View, Equatable {
     let location: Location
     let isSeen: Bool
     let isRevealing: Bool
+    /// This trip saw the plate before any other trip did; it wears a 1ST badge (#78).
+    var isFirstEver = false
     let onTapUnseen: () -> Void
     let onTapSeen: () -> Void
 
@@ -19,6 +21,7 @@ struct PlateTileView: View, Equatable {
 
     static func == (lhs: PlateTileView, rhs: PlateTileView) -> Bool {
         lhs.location == rhs.location && lhs.isSeen == rhs.isSeen && lhs.isRevealing == rhs.isRevealing
+            && lhs.isFirstEver == rhs.isFirstEver
     }
 
     var body: some View {
@@ -28,7 +31,7 @@ struct PlateTileView: View, Equatable {
         .buttonStyle(.plain)
         .scaleEffect(tileScale)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
+        .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")\(isSeen && isFirstEver ? ", first time ever" : "")")
         .accessibilityHint("Double-tap to \(isSeen ? "view details" : "mark as seen")")
         .sensoryFeedback(.success, trigger: isRevealing) { _, revealing in revealing }
         .onChange(of: isRevealing) { _, revealing in
@@ -98,6 +101,12 @@ struct PlateTileView: View, Equatable {
                     .foregroundStyle(.green)
                     .font(.caption)
                     .offset(x: 3, y: -3)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if isFirstEver && showCheckmark {
+                FirstEverBadge()
+                    .offset(x: 4, y: -7)
             }
         }
         .overlay {
