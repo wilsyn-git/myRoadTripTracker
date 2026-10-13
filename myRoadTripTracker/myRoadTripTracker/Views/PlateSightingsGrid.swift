@@ -79,7 +79,16 @@ struct PlateSightingsGrid: View {
         .background(.fill, in: .capsule)
     }
 
+    @ViewBuilder
     private func sectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+        if trip.isClosed {
+            closedSectionView(title: title, locations: locations, seenCodes: seenCodes)
+        } else {
+            openSectionView(title: title, locations: locations, seenCodes: seenCodes)
+        }
+    }
+
+    private func openSectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
         let visible = filtered(locations, seenCodes: seenCodes)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
@@ -88,24 +97,62 @@ struct PlateSightingsGrid: View {
 
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(visible) { location in
-                    PlateTileView(
-                        location: location,
-                        isSeen: seenCodes.contains(location.code),
-                        isRevealing: revealingCodes.contains(location.code),
-                        onTapUnseen: { markAsSeen(location) },
-                        onTapSeen: { sightingToInspect = sighting(for: location) }
-                    )
-                    .equatable()
-                    .contextMenu {
-                        if seenCodes.contains(location.code), !trip.isClosed {
-                            Button("Remove sighting", role: .destructive) {
-                                unmarkAsSeen(location)
+                    tile(for: location, seenCodes: seenCodes)
+                        .contextMenu {
+                            if seenCodes.contains(location.code) {
+                                Button("Remove sighting", role: .destructive) {
+                                    unmarkAsSeen(location)
+                                }
                             }
                         }
-                    }
                 }
             }
         }
+    }
+
+    /// A closed trip can't change, so it reads as a result: the plates seen, as smaller
+    /// tiles, then the ones missed, as chips (#70). The filter doesn't apply here.
+    private func closedSectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
+        let seen = locations.filter { seenCodes.contains($0.code) }
+        let missed = locations.filter { !seenCodes.contains($0.code) }
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            sectionHeader(title: title, locations: locations, seenCodes: seenCodes)
+
+            if !seen.isEmpty {
+                groupLabel("Seen \u{00B7} \(seen.count)")
+                LazyVGrid(columns: columns, spacing: 6) {
+                    ForEach(seen) { location in
+                        tile(for: location, seenCodes: seenCodes)
+                    }
+                }
+            }
+            if !missed.isEmpty {
+                groupLabel("Not seen \u{00B7} \(missed.count)")
+                MissedPlateChips(locations: missed)
+            }
+        }
+    }
+
+    private func groupLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
+    }
+
+    private func tile(for location: Location, seenCodes: Set<String>) -> some View {
+        PlateTileView(
+            location: location,
+            isSeen: seenCodes.contains(location.code),
+            isRevealing: revealingCodes.contains(location.code),
+            onTapUnseen: { markAsSeen(location) },
+            onTapSeen: { sightingToInspect = sighting(for: location) }
+        )
+        .equatable()
     }
 
     private func sectionHeader(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
