@@ -1,21 +1,35 @@
 import SwiftUI
 
-/// A closed trip's plates that were never seen, as small grey chips (flag and code) that
-/// wrap across lines. They're read-only: a closed trip can't mark plates (#70).
-struct MissedPlateChips: View {
+/// A closed trip's plates as small chips (flag and code) that wrap across lines (#70, #74).
+/// Seen plates are in colour and open their sighting when tapped; missed ones are grey and
+/// read-only, since a closed trip can't mark plates.
+struct PlateChips: View {
     let locations: [Location]
+    let isSeen: Bool
+    var onTap: (Location) -> Void = { _ in }
 
     var body: some View {
         FlowLayout(spacing: 6) {
             ForEach(locations) { location in
-                MissedPlateChip(location: location)
+                if isSeen {
+                    Button {
+                        onTap(location)
+                    } label: {
+                        PlateChip(location: location, isSeen: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Double-tap to view details")
+                } else {
+                    PlateChip(location: location, isSeen: false)
+                }
             }
         }
     }
 }
 
-private struct MissedPlateChip: View {
+private struct PlateChip: View {
     let location: Location
+    let isSeen: Bool
 
     var body: some View {
         HStack(spacing: 5) {
@@ -24,19 +38,20 @@ private struct MissedPlateChip: View {
                 .scaledToFill()
                 .frame(width: 20, height: 13)
                 .clipShape(.rect(cornerRadius: 2))
-                .grayscale(1)
-                .opacity(0.6)
+                .grayscale(isSeen ? 0 : 1)
+                .opacity(isSeen ? 1 : 0.6)
             Text(location.code)
                 .font(.system(.caption, design: .monospaced))
                 .bold()
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(isSeen ? .primary : .secondary)
         .padding(.leading, 5)
         .padding(.trailing, 9)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .background(.fill, in: .capsule)
+        .contentShape(.capsule)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(location.name), not seen")
+        .accessibilityLabel("\(location.name), \(isSeen ? "seen" : "not seen")")
     }
 }
 
