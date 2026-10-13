@@ -110,27 +110,24 @@ struct PlateSightingsGrid: View {
         }
     }
 
-    /// A closed trip can't change, so it reads as a result: the plates seen, as smaller
-    /// tiles, then the ones missed, as chips (#70). The filter doesn't apply here.
+    /// A closed trip can't change, so it reads as a result: the plates seen, then the ones
+    /// missed, both as compact chips (#70, #74). The filter doesn't apply here.
     private func closedSectionView(title: String, locations: [Location], seenCodes: Set<String>) -> some View {
         let seen = locations.filter { seenCodes.contains($0.code) }
         let missed = locations.filter { !seenCodes.contains($0.code) }
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
 
         return VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: title, locations: locations, seenCodes: seenCodes)
 
             if !seen.isEmpty {
                 groupLabel("Seen \u{00B7} \(seen.count)")
-                LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(seen) { location in
-                        tile(for: location, seenCodes: seenCodes)
-                    }
+                PlateChips(locations: seen, isSeen: true) { location in
+                    sightingToInspect = sighting(for: location)
                 }
             }
             if !missed.isEmpty {
                 groupLabel("Not seen \u{00B7} \(missed.count)")
-                MissedPlateChips(locations: missed)
+                PlateChips(locations: missed, isSeen: false)
             }
         }
     }
