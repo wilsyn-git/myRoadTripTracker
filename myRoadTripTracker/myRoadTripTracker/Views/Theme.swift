@@ -8,6 +8,11 @@ enum Theme {
     /// Green used *as text* on plain backgrounds. Lighter in dark mode so it stays at least
     /// 4.5:1 there; `green` itself is for fills behind white text (#65).
     static let greenText = Color("GreenText")
+    /// A seen plate tile's fill; its border is `greenText`. Pale green in light mode, deep
+    /// green in dark, so seen tiles read at a glance without outshining unseen ones.
+    static let seenTileFill = Color("SeenTileFill")
+    /// Text on a seen plate tile: 8.6:1 on `seenTileFill` in light mode, 9.8:1 in dark.
+    static let seenTileText = Color("SeenTileText")
     /// A closed trip's Siri card.
     static let closedGray = Color(white: 0.38)
     /// Secondary text on a `panel`. Plain `.secondary` is too faint there: white at 0.6

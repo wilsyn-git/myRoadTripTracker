@@ -15,7 +15,8 @@ struct PlateTileView: View, Equatable {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tileScale: CGFloat = 1.0
-    @State private var grayscaleAmount: Double = 1.0
+    /// 0 draws the unseen tile, 1 the seen one; the reveal animates the green fill in.
+    @State private var seenAmount: Double = 0
     @State private var showCheckmark = false
     @State private var showBurst = false
 
@@ -41,7 +42,7 @@ struct PlateTileView: View, Equatable {
         }
         .onAppear {
             if isSeen {
-                grayscaleAmount = 0
+                seenAmount = 1
                 showCheckmark = true
             }
         }
@@ -50,36 +51,43 @@ struct PlateTileView: View, Equatable {
                 // Marked elsewhere (Siri, a collaborator) while this tile was on screen. No
                 // local reveal plays, so show the seen state directly (#41).
                 guard !isRevealing else { return }
-                grayscaleAmount = 0
+                seenAmount = 1
                 withAnimation(.easeIn(duration: 0.15)) {
                     showCheckmark = true
                 }
             } else {
                 showCheckmark = false
-                grayscaleAmount = 1.0
+                seenAmount = 0
                 tileScale = 1.0
             }
         }
     }
 
+    /// Every tile draws at full contrast so a plate's name is easy to find in a sunlit car;
+    /// seen tiles are told apart by their green fill, border and check, not by dimming the
+    /// unseen ones.
     private var tileContent: some View {
-        VStack(spacing: 2) {
+        let showsSeen = isSeen || isRevealing
+        return VStack(spacing: 2) {
             Image(location.flagImageName)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 44, height: 28)
                 .clipShape(.rect(cornerRadius: 3))
-                .grayscale(isSeen && !isRevealing ? 0 : grayscaleAmount)
 
             Text(location.code)
-                .font(.system(.caption, design: .monospaced))
-                .bold()
+                .font(.system(.caption2, design: .monospaced))
+                .fontWeight(.semibold)
+                .foregroundStyle(showsSeen ? AnyShapeStyle(Theme.seenTileText) : AnyShapeStyle(.secondary))
 
+            // The name is what people scan for (the grid is alphabetical), so it's the
+            // largest, darkest text on the tile.
             Text(location.name)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(showsSeen ? AnyShapeStyle(Theme.seenTileText) : AnyShapeStyle(.primary))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 8)
@@ -87,20 +95,28 @@ struct PlateTileView: View, Equatable {
         // no height from the grid, so it sized the tile from its content and left it
         // narrower than its column (#72).
         .frame(maxWidth: .infinity)
-        .background(.background)
+        .background {
+            ZStack {
+                Rectangle().fill(.background)
+                Rectangle().fill(Theme.seenTileFill).opacity(seenAmount)
+            }
+        }
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(.separator, lineWidth: 0.5)
+                .opacity(1 - seenAmount)
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Theme.greenText, lineWidth: 2)
+                .opacity(seenAmount)
         }
-        .opacity(isSeen || isRevealing ? 1.0 : 0.45)
-        .shadow(color: isSeen ? .black.opacity(0.06) : .clear, radius: 1, y: 1)
         .overlay(alignment: .topTrailing) {
             if showCheckmark {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.caption)
-                    .offset(x: 3, y: -3)
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(Color(.systemBackground), Theme.greenText)
+                    .font(.body)
+                    .offset(x: 5, y: -5)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -130,7 +146,7 @@ struct PlateTileView: View, Equatable {
     private func playRevealAnimation() {
         if reduceMotion {
             withAnimation(.easeInOut(duration: 0.3)) {
-                grayscaleAmount = 0
+                seenAmount = 1
                 showCheckmark = true
                 tileScale = 1.0
             }
@@ -138,7 +154,7 @@ struct PlateTileView: View, Equatable {
         }
 
         withAnimation(.easeOut(duration: 0.25)) {
-            grayscaleAmount = 0
+            seenAmount = 1
         }
 
         // A quick press, then a springy release. The reveal now starts on the tap itself
