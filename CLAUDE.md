@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Bundle ID: `com.tentenbits.myRoadTripTracker`
 - CloudKit container: `iCloud.com.tentenbits.myRoadTripTracker`
-- iOS 18.1+ / Xcode 26+
+- iOS 26.1+ / Xcode 26+
 - TestFlight active
 
 ## Build / Run / Test
@@ -76,7 +76,9 @@ Models/      <Entity>+CoreDataClass.swift / +CoreDataProperties.swift  (4 entiti
 Services/    PersistenceController, CoreDataHelpers, CloudKitUserHelper,
              LocationManager, Location (64 NA regions), ImageProcessor,
              IntentRoute, WhatsNew, TripShareItem, TripListSections,
-             TripLifecycle, TripBadges, PlateHistory, PlateCount, TripPlateTotal
+             TripLifecycle, TripBadges, PlateHistory, PlateCount, TripPlateTotal,
+             PinBackfill, RecapStats, RecapNarrativeGenerator, RecapMapRenderer,
+             RecapMapCache
 Views/       SwiftUI views (ContentView, TripHeroCard, TripRow, TripDetailView,
              PlateSightings*, Observations*, ParticipantsView, ...)
 Resources/   Info.plist, .entitlements, .xcdatamodeld, Assets.xcassets,
@@ -120,7 +122,7 @@ These are non-obvious things that have already cost time on this project. Honor 
 
 7. **Do not introduce a dual SwiftData + Core Data stack** on the same SQLite file. Two `NSPersistentStoreCoordinator`s have WAL visibility issues and the CloudKit mirroring delegates conflict ("There is another instance of this persistent store actively syncing with CloudKit in this process"). The migration away from SwiftData was deliberate.
 
-8. **Never put a `ShareLink` inside a `Menu` or the toolbar overflow (`.secondaryAction`).** On iOS 26+ the share sheet presents as a popover anchored to the control that opened it. A menu item is gone by then, so UIKit throws `NSGenericException` ("UIPopoverPresentationController … should have a non-nil sourceView or barButtonItem") and the app crashes. That shipped in build 76 (#62). Give the `ShareLink` its own toolbar item. The build won't catch this: tap it in a simulator (`idb ui tap`) before shipping.
+8. **Never put a `ShareLink` inside a `Menu` or the toolbar overflow (`.secondaryAction`).** On iOS 26+ the share sheet presents as a popover anchored to the control that opened it. A menu item is gone by then, so UIKit throws `NSGenericException` ("UIPopoverPresentationController … should have a non-nil sourceView or barButtonItem") and the app crashes. Give the `ShareLink` its own toolbar item. The build won't catch this: tap it in a simulator (`idb ui tap`) before shipping.
 
 ## Privacy invariants (non-negotiable)
 

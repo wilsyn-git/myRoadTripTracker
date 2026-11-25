@@ -82,7 +82,7 @@ Project uses `PBXFileSystemSynchronizedRootGroup` (Xcode 16+ auto file discovery
 ## Privacy invariants (non-negotiable)
 
 - One-shot GPS only, requested at first plate tap. No background, no Always permission, no route tracking.
-- No user attribution on `PlateSighting` (only on `ObservationEntry`).
+- `PlateSighting` carries optional author attribution (`spottedByName`, shown as "by <name>"); see `CLAUDE.md`.
 - Map: pins only, no lines/routes/animation.
 - If location denied: plates can still be marked with coords `0,0`.
 
